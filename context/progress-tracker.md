@@ -38,6 +38,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Session Notes
 
+- Fixed secondary button hover to use defined theme tokens and forwarded Tabs orientation to its Base UI root.
 - Added a postinstall recovery script for the missing Lucide generated ESM module; verified it reconstructs the file and Lucide icons import successfully.
 
 - Restored the missing `lucide-react` ESM `defaultAttributes.mjs` from the installed source map; direct icon imports now load. Production build reaches font loading but cannot fetch Geist from Google Fonts in this offline environment.
