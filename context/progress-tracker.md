@@ -43,6 +43,8 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Session Notes
 
+- Addressed verified CodeRabbit PR findings: auth route config now fails closed unless it targets the implemented sign-in/sign-up routes; corrected Clerk token-context, org-scoped deletion, input-validation, Route Handler, server/client, Markdown, and eval examples; reverted the generated Tabs wrapper edit.
+
 - Hardened both duplicated standalone Clerk JWT verification examples with required issuer and authorized-party allowlist checks before consuming `sub`; used the installed SDK's `data`/`errors` result shape.
 
 - Fixed the editor navbar user menu positioning by overriding Clerk's shared full-width centered `rootBox` appearance for `UserButton`; it now sizes to its content inside the right-aligned navbar slot.

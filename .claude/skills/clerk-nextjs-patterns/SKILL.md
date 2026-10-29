@@ -149,7 +149,7 @@ Use `next build --debug-prerender` to list every failing route. A plain `next bu
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | `undefined` userId in Server Component | Missing `await` | `await auth()` not `auth()` |
-| Auth not working on API routes | Missing matcher | Add `'/(api|trpc)(.*)'` to `proxy.ts` (Next.js <=15: `middleware.ts`) |
+| Auth not working on API routes | Missing matcher | Add `'/(api\|trpc)(.*)'` to `proxy.ts` (Next.js <=15: `middleware.ts`) |
 | `next build` fails with "uncached or runtime data during prerendering" | `auth()`, `currentUser()`, or server `<Show>` outside `<Suspense>` | Wrap the auth-dependent UI in `<Suspense>` (see [Cache Components](#cache-components)) |
 | Cache returns wrong user's data | `userId` not part of the cache key | Pass `userId` into the `'use cache'` function as an argument |
 | Mutations bypass auth | Unprotected Server Action | Check `auth()` at start of action |
@@ -161,6 +161,8 @@ Use `next build --debug-prerender` to list every failing route. A plain `next bu
 ### getToken() for external APIs
 
 Pass a custom JWT to third-party services (Hasura, Supabase, etc.) using JWT templates defined in the Clerk dashboard.
+
+Only send a template token to the trusted origin of the service it was issued for.
 
 **Server-side (Server Component or Route Handler)**:
 
@@ -229,19 +231,19 @@ export function SessionInfo() {
 
 ### Manual JWT verification (no Clerk middleware)
 
-For standalone API servers that receive Clerk session tokens from the `Authorization` header or the `__session` cookie (same-origin).
+The examples below read a Clerk session token from the `Authorization: Bearer` header. For same-origin cookie requests, read the `__session` cookie with the server framework's cookie parser and use that value as the token instead.
 
-Set `CLERK_JWT_ISSUER` to the exact issuer for your Clerk instance and `CLERK_AUTHORIZED_PARTIES` to a comma-separated allowlist of frontend origins. Configure both before accepting tokens.
+Load `EXPECTED_CLERK_ISSUER` and `EXPECTED_CLERK_AUTHORIZED_PARTIES` from trusted application configuration. These are application-owned settings, not Clerk SDK environment variables. Set the issuer to the exact issuer for the Clerk instance and the parties to a comma-separated allowlist of frontend origins before accepting tokens.
 
 ```typescript
-const issuer = process.env.CLERK_JWT_ISSUER
-const authorizedParties = (process.env.CLERK_AUTHORIZED_PARTIES ?? '')
+const expectedIssuer = process.env.EXPECTED_CLERK_ISSUER
+const expectedAuthorizedParties = (process.env.EXPECTED_CLERK_AUTHORIZED_PARTIES ?? '')
   .split(',')
   .map((party) => party.trim())
   .filter(Boolean)
 
-if (!issuer || authorizedParties.length === 0) {
-  throw new Error('Set CLERK_JWT_ISSUER and CLERK_AUTHORIZED_PARTIES before accepting tokens')
+if (!expectedIssuer || expectedAuthorizedParties.length === 0) {
+  throw new Error('Configure the expected Clerk issuer and authorized parties before accepting tokens')
 }
 ```
 
@@ -256,8 +258,8 @@ if (!token) return res.status(401).json({ error: 'No token' })
 try {
   const { data: claims, errors } = await verifyToken(token, {
     jwtKey: process.env.CLERK_JWT_KEY,
-    issuer,
-    authorizedParties,
+    issuer: expectedIssuer,
+    authorizedParties: expectedAuthorizedParties,
   })
   if (errors || !claims?.sub) return res.status(401).json({ error: 'Invalid token' })
   // claims.sub = userId
@@ -271,16 +273,19 @@ try {
 ```typescript
 import jwt from 'jsonwebtoken'
 
-const publicKey = process.env.CLERK_PEM_PUBLIC_KEY!.replace(/\\n/g, '\n')
+const publicKey = process.env.CLERK_JWT_KEY!.replace(/\\n/g, '\n')
 const token = req.headers.authorization?.replace('Bearer ', '')
 if (!token) return res.status(401).json({ error: 'No token' })
 
 try {
   const claims = jwt.verify(token, publicKey, {
     algorithms: ['RS256'],
-    issuer,
+    issuer: expectedIssuer,
   }) as jwt.JwtPayload
-  if (typeof claims.azp !== 'string' || !authorizedParties.includes(claims.azp)) {
+  if (
+    typeof claims.azp !== 'string' ||
+    !expectedAuthorizedParties.includes(claims.azp)
+  ) {
     return res.status(401).json({ error: 'Invalid token origin' })
   }
   if (!claims.sub) return res.status(401).json({ error: 'Invalid token subject' })

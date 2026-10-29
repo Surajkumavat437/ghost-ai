@@ -75,8 +75,11 @@ export function UserDashboard() {
 
 ## Hybrid Pattern
 
+Put the server and client examples in separate files. The client module must start with the `'use client'` directive.
+
+`app/profile/page.tsx` (Server Component):
+
 ```tsx
-// Server: fetch initial data
 import { currentUser } from '@clerk/nextjs/server';
 import { Suspense } from 'react';
 import { ProfileForm } from './ProfileForm';
@@ -94,14 +97,32 @@ export default function ProfilePage() {
     </Suspense>
   );
 }
+```
 
-// Client: handle interactions
+`app/profile/ProfileForm.tsx` (Client Component):
+
+```tsx
 'use client';
+
 import { useUser } from '@clerk/nextjs';
 
-export function ProfileForm({ initialData }) {
+interface ProfileFormProps {
+  initialData: {
+    firstName: string | null;
+  };
+}
+
+export function ProfileForm({ initialData }: ProfileFormProps) {
   const { user } = useUser();
-  return <form>...</form>;
+  const firstName = user?.firstName ?? initialData.firstName;
+  return (
+    <form>
+      <label>
+        First name
+        <input name="firstName" defaultValue={firstName ?? ''} />
+      </label>
+    </form>
+  );
 }
 ```
 

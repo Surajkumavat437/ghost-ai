@@ -29,7 +29,7 @@ Create sign-in and sign-up pages using Clerk components.
 
 Use `proxy.ts` at the project root, not `middleware.ts`.
 
-Define public routes using the existing sign-in and sign-up env vars. Protect everything else by default.
+Use the existing `NEXT_PUBLIC_CLERK_SIGN_IN_URL` and `NEXT_PUBLIC_CLERK_SIGN_UP_URL` env vars for public auth routes. They must resolve to the implemented `/sign-in` and `/sign-up` pages; invalid routes, including `/`, fail closed. Protect everything else by default.
 
 Update `/`:
 

@@ -1,0 +1,16 @@
+{
+  "name": "clerk-auth-migration-eval",
+  "private": true,
+  "dependencies": {
+    "@clerk/nextjs": "7.9.22",
+    "next": "16.4.3",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5"
+  }
+}
