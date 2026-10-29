@@ -53,6 +53,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 - Updated the auth information panel copy and feature rows to match the provided login reference, and adjusted Clerk card spacing and field-label styling while preserving Clerk's built-in sign-in methods and account flows.
 
+- Fixed secondary button hover to use defined theme tokens and forwarded Tabs orientation to its Base UI root.
 - Added a postinstall recovery script for the missing Lucide generated ESM module; verified it reconstructs the file and Lucide icons import successfully.
 
 - Restored the missing `lucide-react` ESM `defaultAttributes.mjs` from the installed source map; direct icon imports now load. Production build reaches font loading but cannot fetch Geist from Google Fonts in this offline environment.
@@ -82,3 +83,6 @@ Update this file whenever the current phase, active feature, or implementation s
 - `npm run lint`, `npx tsc --noEmit`, and `npm run build` pass after the auth styling fix. Browser screenshots could not be inspected because the browser access host was unavailable; desktop/mobile visual QA remains pending.
 - Official Clerk Tailwind v4 guidance identified the missing cascade configuration: Tailwind utility styles must be ordered after Clerk's styles using `cssLayerName` and `@layer theme, base, clerk, components, utilities`. Added that configuration so Clerk's styles no longer override the appearance element utility classes.
 - Rebuilt after the cascade fix; production CSS includes the `clerk` component layer and the utility layer after it. Lint, TypeScript, and production build pass. Browser visual verification remains pending.
+
+- Merged the latest origin/main changes into uthentication-implementation; retained the incoming secondary-button token and Tabs orientation fixes alongside authentication review work.
+- Merged the latest `origin/main` changes into `authentication-implementation`; retained the incoming secondary-button token and Tabs orientation fixes alongside authentication review work.
