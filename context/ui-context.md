@@ -35,7 +35,7 @@ Tailwind utility names map to these variables. Use `bg-base`, `bg-surface`, `tex
 | UI text   | Geist Sans | `--font-geist-sans` |
 | Code/mono | Geist Mono | `--font-geist-mono` |
 
-Both fonts are loaded via `next/font/google` and applied as CSS variables on the `<html>` element. The base `body` uses Geist Sans with `antialiased`.
+Both fonts are self-hosted from `@fontsource-variable/geist` and `@fontsource-variable/geist-mono`, then applied through CSS variables in `globals.css`. The base `body` uses Geist Sans with `antialiased`.
 
 ## Border Radius
 
@@ -99,6 +99,14 @@ shadcn/ui on top of Tailwind. No custom design system. Components live in `compo
 - Sidebars: floating overlay with dark semi-transparent background and subtle border.
 - Modals and dialogs: centered overlay, `rounded-3xl`, dark background with backdrop blur.
 - Navbar: top bar with dark background and bottom border.
+
+### Authentication Pages
+
+- From Tailwind's `md` breakpoint upward, use equal-width panels: a `bg-surface` information panel on the left and the `bg-base` Clerk form panel on the right. Below that breakpoint, show the form panel only.
+- Keep the left panel compact: logo, short tagline, three feature rows with small token-colored icons, and a quiet footer.
+- Center the Clerk sign-in or sign-up card in the right panel. On small screens, show the form panel only.
+- Keep the presentation minimal: no gradients, oversized hero content, or separate feature cards.
+- Load Geist Sans and Geist Mono through Fontsource and pass the matching CSS variables into Clerk appearance so the auth forms use the app fonts.
 
 ## Icons
 

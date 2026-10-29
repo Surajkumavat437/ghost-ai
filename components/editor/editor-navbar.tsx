@@ -1,6 +1,7 @@
 "use client"
 
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react"
+import { UserButton } from "@clerk/nextjs"
 
 import { Button } from "@/components/ui/button"
 
@@ -33,7 +34,15 @@ export function EditorNavbar({
           Ghost AI
         </span>
       </div>
-      <div aria-hidden="true" className="flex flex-1 justify-end" />
+      <div className="flex flex-1 justify-end">
+        <UserButton
+          appearance={{
+            elements: {
+              rootBox: "!w-fit !justify-end",
+            },
+          }}
+        />
+      </div>
     </header>
   )
 }

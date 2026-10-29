@@ -1,3 +1,5 @@
+@layer theme, base, clerk, components, utilities;
+
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -17,6 +19,7 @@
   --color-copy-secondary: var(--text-secondary);
   --color-copy-muted: var(--text-muted);
   --color-copy-faint: var(--text-faint);
+  --color-copy-on-brand: var(--bg-base);
   --color-brand: var(--accent-primary);
   --color-accent-dim: var(--accent-primary-dim);
   --color-ai: var(--accent-ai);
@@ -54,6 +57,9 @@
 
 :root {
   color-scheme: dark;
+
+  --font-geist-sans: "Geist Variable";
+  --font-geist-mono: "Geist Mono Variable";
 
   --bg-base: #080809;
   --bg-surface: #111114;
@@ -97,4 +103,20 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+@theme inline {
+  --color-bg-base: var(--bg-base);
+  --color-bg-surface: var(--bg-surface);
+  --color-border-default: var(--border-default);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-faint: var(--text-faint);
+
+  --color-accent-primary: var(--accent-primary);
+  --color-accent-primary-dim: var(--accent-primary-dim);
+
+  /* Keep your existing theme mappings here */
 }
