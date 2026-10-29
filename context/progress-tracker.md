@@ -43,6 +43,8 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Session Notes
 
+- Hardened both duplicated standalone Clerk JWT verification examples with required issuer and authorized-party allowlist checks before consuming `sub`; used the installed SDK's `data`/`errors` result shape.
+
 - Fixed the editor navbar user menu positioning by overriding Clerk's shared full-width centered `rootBox` appearance for `UserButton`; it now sizes to its content inside the right-aligned navbar slot.
 
 - Added Suspense boundaries around Clerk's sign-in and sign-up forms to satisfy Next.js 16 URL-data prerendering, while keeping `instant = false` on auth routes. Added the same opt-out on `/`, which reads Clerk auth state at request time. Restored local Clerk route URLs in `.env.local` so localhost redirects to the app's own forms, and consolidated both auth pages on one shared, responsive layout.

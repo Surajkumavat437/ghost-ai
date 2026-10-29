@@ -231,6 +231,20 @@ export function SessionInfo() {
 
 For standalone API servers that receive Clerk session tokens from the `Authorization` header or the `__session` cookie (same-origin).
 
+Set `CLERK_JWT_ISSUER` to the exact issuer for your Clerk instance and `CLERK_AUTHORIZED_PARTIES` to a comma-separated allowlist of frontend origins. Configure both before accepting tokens.
+
+```typescript
+const issuer = process.env.CLERK_JWT_ISSUER
+const authorizedParties = (process.env.CLERK_AUTHORIZED_PARTIES ?? '')
+  .split(',')
+  .map((party) => party.trim())
+  .filter(Boolean)
+
+if (!issuer || authorizedParties.length === 0) {
+  throw new Error('Set CLERK_JWT_ISSUER and CLERK_AUTHORIZED_PARTIES before accepting tokens')
+}
+```
+
 **Using `@clerk/backend` `verifyToken`** (recommended):
 
 ```typescript
@@ -240,9 +254,12 @@ const token = req.headers.authorization?.replace('Bearer ', '')
 if (!token) return res.status(401).json({ error: 'No token' })
 
 try {
-  const claims = await verifyToken(token, {
+  const { data: claims, errors } = await verifyToken(token, {
     jwtKey: process.env.CLERK_JWT_KEY,
+    issuer,
+    authorizedParties,
   })
+  if (errors || !claims?.sub) return res.status(401).json({ error: 'Invalid token' })
   // claims.sub = userId
 } catch {
   return res.status(401).json({ error: 'Invalid token' })
@@ -259,8 +276,14 @@ const token = req.headers.authorization?.replace('Bearer ', '')
 if (!token) return res.status(401).json({ error: 'No token' })
 
 try {
-  const claims = jwt.verify(token, publicKey, { algorithms: ['RS256'] }) as jwt.JwtPayload
-  // Manually check exp and nbf (jsonwebtoken does this automatically, but verify azp if needed)
+  const claims = jwt.verify(token, publicKey, {
+    algorithms: ['RS256'],
+    issuer,
+  }) as jwt.JwtPayload
+  if (typeof claims.azp !== 'string' || !authorizedParties.includes(claims.azp)) {
+    return res.status(401).json({ error: 'Invalid token origin' })
+  }
+  if (!claims.sub) return res.status(401).json({ error: 'Invalid token subject' })
   // claims.sub = userId
 } catch {
   return res.status(401).json({ error: 'Invalid or expired token' })
