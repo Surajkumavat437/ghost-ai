@@ -4,11 +4,11 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Authentication and route protection
+- Project dialogs and editor home
 
 ## Current Goal
 
-- Clerk authentication is wired into the app, the editor workspace is protected, and both auth forms share the Ghost AI theme.
+- Implemented the project dialogs and editor home from `context/feature-specs/04-project-dialogs.md` using mock data only.
 
 ## Completed
 
@@ -17,21 +17,31 @@ Update this file whenever the current phase, active feature, or implementation s
 - Added the reusable `cn()` helper in `lib/utils.ts`.
 - Applied the dark theme palette and shadcn semantic tokens in `app/globals.css`; the root document uses dark mode.
 - Implemented the reusable editor navbar and floating project sidebar from `context/feature-specs/02-editor.md`.
+- Added a smooth 300 ms slide-and-fade transition for both sidebar opening and closing, using the CSS translate property and honoring reduced-motion preferences.
 - Updated the reusable dialog shell with token-based styling for titles, descriptions, and footer actions.
 - Added `EditorLayout` to manage sidebar state and compose the navbar, sidebar, and page content; mounted it on the home page.
 - Installed `@clerk/ui` and configured the root Clerk provider with its dark theme and app CSS variable overrides.
 - Added Clerk sign-in and sign-up pages with the responsive, two-panel auth layout from `context/feature-specs/03-auth.md`; the sign-in page uses Clerk's built-in form card and keeps its default flows intact.
 - Added root `proxy.ts` protection with the configured Clerk sign-in and sign-up paths public by default; moved the workspace to `/editor` and added the root auth redirect.
 - Added Clerk's built-in `UserButton` to the editor navbar.
+- Configured Clerk sign-in and sign-up to redirect directly to `/editor` after successful authentication.
 - Self-hosted Geist and Geist Mono with Fontsource so production builds do not depend on reaching Google Fonts; updated `context/ui-context.md` to document font loading.
+- Added the minimal `/editor` home with its New Project action and live slug preview.
+- Added a dedicated project dialog hook with local mock project state, create/rename/delete dialogs, form state, and loading state.
+- Wired sidebar create, rename, and delete actions; only owned projects show actions, and shared projects remain action free.
+- Wired project selection from the sidebar to the active editor workspace; the selected project's name is displayed, and deleting it returns to the editor home.
+- Added an ASCII code-point slug fallback for Unicode-only project names such as `東京`; slug failures now display inline validation and leave Create open.
+- Added a mobile sidebar scrim that closes the sidebar when tapped.
+- Restored shadcn fade and zoom animation classes and shortened the close animation to 100 ms for a more immediate response.
+- Disabled Rename's Save changes button until the trimmed project name differs from its current name.
 
 ## In Progress
 
-- Browser visual QA of the screenshot-aligned Clerk login remains pending; browser access was unavailable in the prior attempt.
+- None.
 
 ## Next Up
 
-- Inspect both auth routes at desktop and mobile sizes when browser access is available.
+- Continue with the next feature spec.
 
 ## Open Questions
 
@@ -75,6 +85,8 @@ Update this file whenever the current phase, active feature, or implementation s
 - Refined the auth screen into a 50/50 dark split layout with a token-colored feature panel, compact icon rows, centered Clerk form, and Geist Sans/Mono applied to Clerk components.
 - Updated the auth feature spec and UI context to document the screenshot-aligned split layout and feature rows.
 - Tightened the auth information panel to match the spec's compact presentation: shorter tagline, smaller heading, tighter spacing, and smaller feature icons. The Clerk sign-in card and its default flows remain in place.
+- Smoothed the editor sidebar's open and close slide and fade with a 300 ms in-out transition on the CSS translate and opacity properties, plus a fully offscreen closed position and reduced-motion support.
+- Fixed the post-auth pause on the login page by setting explicit `/editor` destinations on both Clerk auth forms, bypassing the intermediate root redirect.
 - Corrected Clerk Core 3 appearance configuration to pass the installed `dark` theme through the `theme` property, then apply app CSS-variable overrides and raised card styling. The prior spread supplied theme fields without selecting the base theme.
 - Made Clerk's card, primary button, input, social buttons, and headings explicitly use Ghost AI theme tokens. Moved the two-panel auth layout to the `md` breakpoint so branding appears on tablet landscape widths while remaining hidden on small screens; verified Tailwind v4 generated the required token and responsive utilities.
 - Fixed inconsistent Clerk appearance across sign-in and sign-up by defining one shared appearance using the installed `@clerk/ui/themes` dark theme, Ghost AI CSS variables, and self-hosted Geist font variables; passed the pinned `ui` package to `ClerkProvider`.
@@ -86,3 +98,5 @@ Update this file whenever the current phase, active feature, or implementation s
 
 - Merged the latest origin/main changes into uthentication-implementation; retained the incoming secondary-button token and Tabs orientation fixes alongside authentication review work.
 - Merged the latest `origin/main` changes into `authentication-implementation`; retained the incoming secondary-button token and Tabs orientation fixes alongside authentication review work.
+- Fixed project dialog dismissal flicker by retaining the active form or confirmation content until Base UI's `onOpenChangeComplete(false)` callback ends the exit lifecycle. TypeScript, ESLint, production build, and `git diff --check` pass; interactive browser verification remains pending because the browser control host is unavailable.
+- Addressed CodeRabbit feedback: sidebar selection now opens the selected mock project's workspace, and Unicode-only names get an ASCII slug fallback with a validation guard that keeps Create open if slug generation fails.

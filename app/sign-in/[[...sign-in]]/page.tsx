@@ -10,7 +10,7 @@ export default function SignInPage() {
       <Suspense
         fallback={<p className="text-center text-sm text-text-muted">Loading sign-in…</p>}
       >
-        <SignIn />
+        <SignIn forceRedirectUrl="/editor" />
       </Suspense>
     </AuthPageLayout>
   );
