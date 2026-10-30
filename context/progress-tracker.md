@@ -4,13 +4,20 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Project dialogs and editor home
+- Prisma schema and data layer
 
 ## Current Goal
 
-- Implemented the project dialogs and editor home from `context/feature-specs/04-project-dialogs.md` using mock data only.
+- Implement `context/feature-specs/05-prisma.md`: define project data models, add the Prisma client singleton, and create the initial migration.
 
 ## Completed
+
+- Added the `Project` and `ProjectCollaborator` Prisma models in `prisma/models/project.prisma`, including the requested status enum, cascade relation, unique constraint, and indexes.
+- Added a cached Prisma client singleton in `lib/prisma.ts`, using Prisma Accelerate for `prisma+postgres://` URLs and the PostgreSQL driver adapter for direct URLs.
+- Validated and formatted the Prisma schema, generated Prisma Client, and created the initial PostgreSQL migration.
+- Applied the initial migration `20261030120000_init` to the configured PostgreSQL database.
+- `npm run build` passes with the Prisma client and schema changes.
+- Configured `prebuild` to generate Prisma Client automatically before production builds.
 
 - Configured shadcn/ui for Tailwind CSS v4 and generated Button, Card, Dialog, Input, Tabs, Textarea, and ScrollArea.
 - Installed `lucide-react` and the component runtime dependencies.
