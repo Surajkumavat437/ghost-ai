@@ -12,13 +12,14 @@ interface ProjectDialogsProps {
   formName: string
   onFormNameChange: (name: string) => void
   slugPreview: string
+  validationError: string
   isLoading: boolean
   onClose: () => void
   onSubmitName: () => void
   onConfirmDelete: () => void
 }
 
-export function ProjectDialogs({ dialog, formName, onFormNameChange, slugPreview, isLoading, onClose, onSubmitName, onConfirmDelete }: ProjectDialogsProps) {
+export function ProjectDialogs({ dialog, formName, onFormNameChange, slugPreview, validationError, isLoading, onClose, onSubmitName, onConfirmDelete }: ProjectDialogsProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [renderedDialog, setRenderedDialog] = useState(dialog)
   const [previousDialog, setPreviousDialog] = useState(dialog)
@@ -56,7 +57,10 @@ export function ProjectDialogs({ dialog, formName, onFormNameChange, slugPreview
               <label htmlFor="project-name" className="text-sm font-medium text-copy-secondary">Project name</label>
               <Input className="text-white" ref={inputRef} autoFocus={renderedDialog.type === "rename"} id="project-name" value={formName} onChange={(event) => onFormNameChange(event.target.value)} placeholder="e.g. Payments Platform" required />
               {renderedDialog.type === "create" && (
-                <p className="text-xs text-copy-muted">Slug preview: <span className="font-mono text-copy-secondary">{slugPreview || "project-name"}</span></p>
+                <div>
+                  <p className="text-xs text-copy-muted">Slug preview: <span className="font-mono text-copy-secondary">{slugPreview || "project-name"}</span></p>
+                  {validationError && <p className="mt-2 text-xs text-state-error" role="alert">{validationError}</p>}
+                </div>
               )}
             </div>
             <DialogFooter className="mt-6">

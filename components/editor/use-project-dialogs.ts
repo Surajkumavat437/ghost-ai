@@ -22,13 +22,21 @@ const initialProjects: EditorProject[] = [
 ]
 
 export function createProjectSlug(name: string) {
-  return name
-    .trim()
+  const trimmedName = name.trim()
+  const slug = trimmedName
     .toLowerCase()
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
+
+  if (slug || !trimmedName) return slug
+
+  const codePoints = Array.from(trimmedName, (character) =>
+    character.codePointAt(0)?.toString(16)
+  ).filter((codePoint): codePoint is string => codePoint !== undefined)
+
+  return codePoints.length ? `project-${codePoints.join("-")}` : ""
 }
 
 export function useProjectDialogs() {
@@ -36,20 +44,29 @@ export function useProjectDialogs() {
   const [dialog, setDialog] = useState<ProjectDialogState>(null)
   const [formName, setFormName] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [validationError, setValidationError] = useState("")
   const slugPreview = useMemo(() => createProjectSlug(formName), [formName])
+
+  function updateFormName(name: string) {
+    setFormName(name)
+    setValidationError("")
+  }
 
   function openCreate() {
     setFormName("")
+    setValidationError("")
     setDialog({ type: "create" })
   }
 
   function openRename(project: EditorProject) {
     setFormName(project.name)
+    setValidationError("")
     setDialog({ type: "rename", project })
   }
 
   function openDelete(project: EditorProject) {
     setFormName("")
+    setValidationError("")
     setDialog({ type: "delete", project })
   }
 
@@ -62,12 +79,15 @@ export function useProjectDialogs() {
     setIsLoading(true)
     if (dialog.type === "create") {
       const slug = createProjectSlug(formName)
-      if (slug) {
-        setProjects((current) => [
-          { id: `project-${Date.now()}`, name: formName.trim(), slug, owned: true },
-          ...current,
-        ])
+      if (!slug) {
+        setValidationError("Enter a project name that can be converted to a URL slug.")
+        setIsLoading(false)
+        return
       }
+      setProjects((current) => [
+        { id: `project-${Date.now()}`, name: formName.trim(), slug, owned: true },
+        ...current,
+      ])
     } else {
       const name = formName.trim()
       setProjects((current) => current.map((project) =>
@@ -90,7 +110,8 @@ export function useProjectDialogs() {
     projects,
     dialog,
     formName,
-    setFormName,
+    setFormName: updateFormName,
+    validationError,
     slugPreview,
     isLoading,
     openCreate,

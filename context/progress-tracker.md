@@ -29,13 +29,15 @@ Update this file whenever the current phase, active feature, or implementation s
 - Added the minimal `/editor` home with its New Project action and live slug preview.
 - Added a dedicated project dialog hook with local mock project state, create/rename/delete dialogs, form state, and loading state.
 - Wired sidebar create, rename, and delete actions; only owned projects show actions, and shared projects remain action free.
+- Wired project selection from the sidebar to the active editor workspace; the selected project's name is displayed, and deleting it returns to the editor home.
+- Added an ASCII code-point slug fallback for Unicode-only project names such as `東京`; slug failures now display inline validation and leave Create open.
 - Added a mobile sidebar scrim that closes the sidebar when tapped.
 - Restored shadcn fade and zoom animation classes and shortened the close animation to 100 ms for a more immediate response.
 - Disabled Rename's Save changes button until the trimmed project name differs from its current name.
 
 ## In Progress
 
-- Live browser interaction verification of the dialog close/reopen lifecycle is pending because browser automation is unavailable in this environment.
+- None.
 
 ## Next Up
 
@@ -97,3 +99,4 @@ Update this file whenever the current phase, active feature, or implementation s
 - Merged the latest origin/main changes into uthentication-implementation; retained the incoming secondary-button token and Tabs orientation fixes alongside authentication review work.
 - Merged the latest `origin/main` changes into `authentication-implementation`; retained the incoming secondary-button token and Tabs orientation fixes alongside authentication review work.
 - Fixed project dialog dismissal flicker by retaining the active form or confirmation content until Base UI's `onOpenChangeComplete(false)` callback ends the exit lifecycle. TypeScript, ESLint, production build, and `git diff --check` pass; interactive browser verification remains pending because the browser control host is unavailable.
+- Addressed CodeRabbit feedback: sidebar selection now opens the selected mock project's workspace, and Unicode-only names get an ASCII slug fallback with a validation guard that keeps Create open if slug generation fails.

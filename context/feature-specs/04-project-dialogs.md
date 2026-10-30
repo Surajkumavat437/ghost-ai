@@ -6,7 +6,7 @@ Build the `/editor` home screen and add project dialogs/sidebar actions. No API 
 
 ## Editor Home
 
-Reuse the existing editor layout. Do not modify the navbar or sidebar behavior.
+Reuse the existing editor layout. Do not modify the navbar behavior.
 
 In the center of the page, add:
 
@@ -17,6 +17,7 @@ In the center of the page, add:
 Keep the layout minimal. Do not wrap this content in cards.
 
 Clicking `New Project` should open the Create Project dialog.
+Selecting a project in the sidebar should display that project's workspace.
 
 ## Dialogs
 
@@ -25,6 +26,8 @@ Clicking `New Project` should open the Create Project dialog.
 - project name input
 - live slug preview based on the name
 - preview updates as the user types
+- Unicode-only names receive a stable ASCII slug fallback
+- if slug generation fails, show an inline validation error and keep the dialog open
 
 ### Rename Project
 

@@ -10,18 +10,29 @@ interface ProjectSidebarProps {
   isOpen: boolean
   onClose: () => void
   projects: EditorProject[]
+  selectedProjectId: string | null
   onCreate: () => void
+  onSelect: (project: EditorProject) => void
   onRename: (project: EditorProject) => void
   onDelete: (project: EditorProject) => void
 }
 
-function ProjectList({ projects, onRename, onDelete }: Pick<ProjectSidebarProps, "projects" | "onRename" | "onDelete">) {
+function ProjectList({ projects, selectedProjectId, onSelect, onRename, onDelete }: Pick<ProjectSidebarProps, "projects" | "selectedProjectId" | "onSelect" | "onRename" | "onDelete">) {
   if (!projects.length) return <EmptyProjectsState />
   return (
     <ul className="space-y-1">
       {projects.map((project) => (
         <li key={project.id} className="group flex items-center gap-1 rounded-xl px-2 py-2 hover:bg-subtle">
-          <button className="min-w-0 flex-1 truncate text-left text-sm text-copy-secondary" type="button">{project.name}</button>
+          <button
+            aria-current={project.id === selectedProjectId ? "page" : undefined}
+            className={`min-w-0 flex-1 truncate text-left text-sm ${
+              project.id === selectedProjectId ? "text-brand" : "text-copy-secondary"
+            }`}
+            onClick={() => onSelect(project)}
+            type="button"
+          >
+            {project.name}
+          </button>
           {project.owned && (
             <div className="flex shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
               <Button aria-label={`Rename ${project.name}`} onClick={() => onRename(project)} size="icon-xs" variant="ghost"><Pencil /></Button>
@@ -45,7 +56,7 @@ function EmptyProjectsState() {
   )
 }
 
-export function ProjectSidebar({ isOpen, onClose, projects, onCreate, onRename, onDelete }: ProjectSidebarProps) {
+export function ProjectSidebar({ isOpen, onClose, projects, selectedProjectId, onCreate, onSelect, onRename, onDelete }: ProjectSidebarProps) {
   return (
     <>
       {isOpen && <button aria-label="Close projects sidebar" className="fixed inset-0 z-20 bg-base/65 backdrop-blur-[2px] md:hidden" onClick={onClose} />}
@@ -77,10 +88,10 @@ export function ProjectSidebar({ isOpen, onClose, projects, onCreate, onRename, 
           <TabsTrigger value="shared">Shared</TabsTrigger>
         </TabsList>
         <TabsContent value="my-projects" className="mt-3 flex-1">
-          <ProjectList projects={projects.filter((project) => project.owned)} onRename={onRename} onDelete={onDelete} />
+          <ProjectList projects={projects.filter((project) => project.owned)} selectedProjectId={selectedProjectId} onSelect={onSelect} onRename={onRename} onDelete={onDelete} />
         </TabsContent>
         <TabsContent value="shared" className="mt-3 flex-1">
-          <ProjectList projects={projects.filter((project) => !project.owned)} onRename={onRename} onDelete={onDelete} />
+          <ProjectList projects={projects.filter((project) => !project.owned)} selectedProjectId={selectedProjectId} onSelect={onSelect} onRename={onRename} onDelete={onDelete} />
         </TabsContent>
       </Tabs>
 
