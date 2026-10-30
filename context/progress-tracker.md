@@ -17,6 +17,7 @@ Update this file whenever the current phase, active feature, or implementation s
 - Validated and formatted the Prisma schema, generated Prisma Client, and created the initial PostgreSQL migration.
 - Applied the initial migration `20261030120000_init` to the configured PostgreSQL database.
 - `npm run build` passes with the Prisma client and schema changes.
+- Configured `prebuild` to generate Prisma Client automatically before production builds.
 
 - Configured shadcn/ui for Tailwind CSS v4 and generated Button, Card, Dialog, Input, Tabs, Textarea, and ScrollArea.
 - Installed `lucide-react` and the component runtime dependencies.
