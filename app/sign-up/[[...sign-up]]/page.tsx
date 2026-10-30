@@ -10,7 +10,7 @@ export default function SignUpPage() {
       <Suspense
         fallback={<p className="text-center text-sm text-text-muted">Loading sign-up…</p>}
       >
-        <SignUp />
+        <SignUp forceRedirectUrl="/editor" />
       </Suspense>
     </AuthPageLayout>
   );

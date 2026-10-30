@@ -1,13 +1,37 @@
 "use client"
 
-import { X, Plus } from "lucide-react"
+import { Pencil, Plus, Trash2, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import type { EditorProject } from "@/components/editor/use-project-dialogs"
 
 interface ProjectSidebarProps {
   isOpen: boolean
   onClose: () => void
+  projects: EditorProject[]
+  onCreate: () => void
+  onRename: (project: EditorProject) => void
+  onDelete: (project: EditorProject) => void
+}
+
+function ProjectList({ projects, onRename, onDelete }: Pick<ProjectSidebarProps, "projects" | "onRename" | "onDelete">) {
+  if (!projects.length) return <EmptyProjectsState />
+  return (
+    <ul className="space-y-1">
+      {projects.map((project) => (
+        <li key={project.id} className="group flex items-center gap-1 rounded-xl px-2 py-2 hover:bg-subtle">
+          <button className="min-w-0 flex-1 truncate text-left text-sm text-copy-secondary" type="button">{project.name}</button>
+          {project.owned && (
+            <div className="flex shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+              <Button aria-label={`Rename ${project.name}`} onClick={() => onRename(project)} size="icon-xs" variant="ghost"><Pencil /></Button>
+              <Button aria-label={`Delete ${project.name}`} onClick={() => onDelete(project)} size="icon-xs" variant="ghost"><Trash2 /></Button>
+            </div>
+          )}
+        </li>
+      ))}
+    </ul>
+  )
 }
 
 function EmptyProjectsState() {
@@ -21,15 +45,17 @@ function EmptyProjectsState() {
   )
 }
 
-export function ProjectSidebar({ isOpen, onClose }: ProjectSidebarProps) {
+export function ProjectSidebar({ isOpen, onClose, projects, onCreate, onRename, onDelete }: ProjectSidebarProps) {
   return (
+    <>
+      {isOpen && <button aria-label="Close projects sidebar" className="fixed inset-0 z-20 bg-base/65 backdrop-blur-[2px] md:hidden" onClick={onClose} />}
     <aside
       aria-hidden={!isOpen}
       aria-label="Projects sidebar"
-      className={`fixed bottom-4 left-4 top-[4.5rem] z-30 flex w-[min(20rem,calc(100vw-2rem))] flex-col rounded-2xl border border-surface-border bg-surface/95 shadow-2xl backdrop-blur transition-[transform,opacity] duration-200 ease-out ${
+      className={`fixed bottom-4 left-4 top-[4.5rem] z-30 flex w-[min(20rem,calc(100vw-2rem))] flex-col rounded-2xl border border-surface-border bg-surface/95 shadow-2xl backdrop-blur transition-[translate,opacity] duration-300 ease-in-out motion-reduce:transition-none ${
         isOpen
           ? "translate-x-0 opacity-100"
-          : "pointer-events-none -translate-x-[calc(100%+1rem)] opacity-0"
+          : "pointer-events-none -translate-x-full opacity-0"
       }`}
       inert={!isOpen}
     >
@@ -51,19 +77,20 @@ export function ProjectSidebar({ isOpen, onClose }: ProjectSidebarProps) {
           <TabsTrigger value="shared">Shared</TabsTrigger>
         </TabsList>
         <TabsContent value="my-projects" className="mt-3 flex-1">
-          <EmptyProjectsState />
+          <ProjectList projects={projects.filter((project) => project.owned)} onRename={onRename} onDelete={onDelete} />
         </TabsContent>
         <TabsContent value="shared" className="mt-3 flex-1">
-          <EmptyProjectsState />
+          <ProjectList projects={projects.filter((project) => !project.owned)} onRename={onRename} onDelete={onDelete} />
         </TabsContent>
       </Tabs>
 
       <div className="border-t border-surface-border p-4">
-        <Button className="w-full">
+        <Button className="w-full" onClick={onCreate}>
           <Plus className="h-4 w-4" />
           New Project
         </Button>
       </div>
     </aside>
+    </>
   )
 }
