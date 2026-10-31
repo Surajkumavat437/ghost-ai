@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { MAX_PROJECT_NAME_LENGTH } from "@/lib/project-validation"
 import type { ProjectDialogState } from "@/components/editor/use-project-dialogs"
 
 interface ProjectDialogsProps {
@@ -55,13 +56,12 @@ export function ProjectDialogs({ dialog, formName, onFormNameChange, slugPreview
             </DialogHeader>
             <div className="mt-5 space-y-3">
               <label htmlFor="project-name" className="text-sm font-medium text-copy-secondary">Project name</label>
-              <Input className="text-white" ref={inputRef} autoFocus={renderedDialog.type === "rename"} id="project-name" value={formName} onChange={(event) => onFormNameChange(event.target.value)} placeholder="e.g. Payments Platform" required />
+              <Input className="text-white" ref={inputRef} autoFocus={renderedDialog.type === "rename"} id="project-name" value={formName} onChange={(event) => onFormNameChange(event.target.value)} placeholder="e.g. Payments Platform" maxLength={MAX_PROJECT_NAME_LENGTH} required />
               {renderedDialog.type === "create" && (
                 <div>
                   <p className="text-xs text-copy-muted">Slug preview: <span className="font-mono text-copy-secondary">{slugPreview || "project-name"}</span></p>
                 </div>
               )}
-              {validationError && <p className="text-xs text-state-error" role="alert">{validationError}</p>}
             </div>
             <DialogFooter className="mt-6">
               <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
@@ -80,6 +80,7 @@ export function ProjectDialogs({ dialog, formName, onFormNameChange, slugPreview
               <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
               <Button type="button" variant="destructive" disabled={isLoading} onClick={onConfirmDelete}>{isLoading ? "Deleting…" : "Delete project"}</Button>
             </DialogFooter>
+            {validationError && <p className="mt-3 text-xs text-state-error" role="alert">{validationError}</p>}
           </>
         )}
       </DialogContent>

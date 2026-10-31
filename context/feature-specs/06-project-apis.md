@@ -18,6 +18,12 @@ When creating:
 - default missing project name to `Untitled Project`
 - use the schema’s existing ID strategy, do not add sequential IDs
 
+For project names on create and rename:
+
+- require a non-empty string after trimming whitespace
+- persist the trimmed name
+- limit names to 100 characters
+
 Security:
 
 - unauthenticated requests return `401`

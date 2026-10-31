@@ -1,6 +1,5 @@
-import { currentUser } from "@clerk/nextjs/server";
-
 import { prisma } from "@/lib/prisma";
+import { getVerifiedCollaboratorEmails } from "@/lib/project-access";
 
 export interface AccessibleProject {
   id: string;
@@ -9,13 +8,14 @@ export interface AccessibleProject {
 }
 
 export async function getAccessibleProjects(userId: string) {
-  const user = await currentUser();
-  const email = user?.id === userId ? user.primaryEmailAddress?.emailAddress : undefined;
+  const emails = await getVerifiedCollaboratorEmails(userId);
   const projects = await prisma.project.findMany({
     where: {
       OR: [
         { ownerId: userId },
-        ...(email ? [{ collaborators: { some: { email } } }] : []),
+        ...(emails.length
+          ? [{ collaborators: { some: { email: { in: emails, mode: "insensitive" as const } } } }]
+          : []),
       ],
     },
     orderBy: { updatedAt: "desc" },
@@ -30,14 +30,15 @@ export async function getAccessibleProjects(userId: string) {
 }
 
 export async function getAccessibleProject(userId: string, projectId: string) {
-  const user = await currentUser();
-  const email = user?.id === userId ? user.primaryEmailAddress?.emailAddress : undefined;
+  const emails = await getVerifiedCollaboratorEmails(userId);
   const project = await prisma.project.findFirst({
     where: {
       id: projectId,
       OR: [
         { ownerId: userId },
-        ...(email ? [{ collaborators: { some: { email } } }] : []),
+        ...(emails.length
+          ? [{ collaborators: { some: { email: { in: emails, mode: "insensitive" as const } } } }]
+          : []),
       ],
     },
     select: { id: true, name: true, ownerId: true },

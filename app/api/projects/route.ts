@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { getAccessibleProjects } from "@/lib/projects";
 import { prisma } from "@/lib/prisma";
+import { validateProjectName } from "@/lib/project-validation";
 
 export async function GET() {
   const { userId } = await auth();
@@ -33,14 +34,17 @@ export async function POST(request: Request) {
   }
 
   const nameValue = (body as Record<string, unknown>).name;
-  if (nameValue !== undefined && typeof nameValue !== "string") {
-    return Response.json({ error: "Project name must be a string" }, { status: 400 });
+  const validation = validateProjectName(
+    nameValue === undefined ? "Untitled Project" : nameValue,
+  );
+  if (!validation.name) {
+    return Response.json({ error: validation.error }, { status: 400 });
   }
 
   const project = await prisma.project.create({
     data: {
       ownerId: userId,
-      name: nameValue ?? "Untitled Project",
+      name: validation.name,
     },
   });
 

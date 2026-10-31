@@ -1,5 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
+import { deleteOwnedProject } from "@/lib/project-mutations";
+import { validateProjectName } from "@/lib/project-validation";
 
 export async function PATCH(
   request: Request,
@@ -22,9 +25,9 @@ export async function PATCH(
     return Response.json({ error: "Request body must be an object" }, { status: 400 });
   }
 
-  const name = (body as Record<string, unknown>).name;
-  if (typeof name !== "string") {
-    return Response.json({ error: "Project name must be a string" }, { status: 400 });
+  const validation = validateProjectName((body as Record<string, unknown>).name);
+  if (!validation.name) {
+    return Response.json({ error: validation.error }, { status: 400 });
   }
 
   const { projectId } = await context.params;
@@ -41,10 +44,18 @@ export async function PATCH(
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const updatedProject = await prisma.project.update({
-    where: { id: projectId },
-    data: { name },
-  });
+  let updatedProject;
+  try {
+    updatedProject = await prisma.project.update({
+      where: { id: projectId },
+      data: { name: validation.name },
+    });
+  } catch (error) {
+    if (isPrismaRecordNotFoundError(error)) {
+      return Response.json({ error: "Project not found" }, { status: 404 });
+    }
+    throw error;
+  }
 
   return Response.json(updatedProject);
 }
@@ -60,19 +71,13 @@ export async function DELETE(
   }
 
   const { projectId } = await context.params;
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    select: { ownerId: true },
-  });
-
-  if (!project) {
+  const result = await deleteOwnedProject(prisma.project, projectId, userId);
+  if (result === "not-found") {
     return Response.json({ error: "Project not found" }, { status: 404 });
   }
-
-  if (project.ownerId !== userId) {
+  if (result === "forbidden") {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  await prisma.project.delete({ where: { id: projectId } });
   return new Response(null, { status: 204 });
 }
