@@ -59,14 +59,15 @@ export function ProjectDialogs({ dialog, formName, onFormNameChange, slugPreview
               {renderedDialog.type === "create" && (
                 <div>
                   <p className="text-xs text-copy-muted">Slug preview: <span className="font-mono text-copy-secondary">{slugPreview || "project-name"}</span></p>
-                  {validationError && <p className="mt-2 text-xs text-state-error" role="alert">{validationError}</p>}
                 </div>
               )}
+              {validationError && <p className="text-xs text-state-error" role="alert">{validationError}</p>}
             </div>
             <DialogFooter className="mt-6">
               <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
               <Button type="submit" disabled={isLoading || !formName.trim() || (renderedDialog.type === "rename" && !hasRenameChanges)}>{isLoading ? "Saving…" : renderedDialog.type === "create" ? "Create project" : "Save changes"}</Button>
             </DialogFooter>
+            {validationError && <p className="text-xs text-state-error" role="alert">{validationError}</p>}
           </form>
         )}
         {renderedDialog?.type === "delete" && (

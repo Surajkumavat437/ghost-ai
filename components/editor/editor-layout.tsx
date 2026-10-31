@@ -1,22 +1,25 @@
 "use client"
 
 import { useState, type ReactNode } from "react"
+import { useRouter } from "next/navigation"
 
 import { EditorNavbar } from "@/components/editor/editor-navbar"
 import { ProjectSidebar } from "@/components/editor/project-sidebar"
 import { EditorHome } from "@/components/editor/editor-home"
 import { ProjectDialogs } from "@/components/editor/project-dialogs"
-import { useProjectDialogs } from "@/components/editor/use-project-dialogs"
+import type { EditorProject } from "@/components/editor/use-project-dialogs"
+import { useProjectActions } from "@/hooks/use-project-actions"
 
 interface EditorLayoutProps {
   children?: ReactNode
+  projects: EditorProject[]
+  activeProject?: EditorProject | null
 }
 
-export function EditorLayout({ children }: EditorLayoutProps) {
+export function EditorLayout({ children, projects, activeProject = null }: EditorLayoutProps) {
+  const router = useRouter()
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
-  const projectDialogs = useProjectDialogs()
-  const activeProject = projectDialogs.projects.find((project) => project.id === activeProjectId)
+  const projectActions = useProjectActions(projects, activeProject?.id ?? null)
 
   return (
     <div className="min-h-dvh bg-base">
@@ -27,15 +30,15 @@ export function EditorLayout({ children }: EditorLayoutProps) {
       <ProjectSidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
-        projects={projectDialogs.projects}
-        selectedProjectId={activeProjectId}
-        onCreate={projectDialogs.openCreate}
+        projects={projectActions.projects}
+        selectedProjectId={activeProject?.id ?? null}
+        onCreate={projectActions.openCreate}
         onSelect={(project) => {
-          setActiveProjectId(project.id)
           setIsSidebarOpen(false)
+          router.push(`/editor/${encodeURIComponent(project.id)}`)
         }}
-        onRename={projectDialogs.openRename}
-        onDelete={projectDialogs.openDelete}
+        onRename={projectActions.openRename}
+        onDelete={projectActions.openDelete}
       />
       <main className="min-h-dvh pt-14">
         {children ?? (
@@ -45,20 +48,20 @@ export function EditorLayout({ children }: EditorLayoutProps) {
               <p className="mt-2 text-sm text-copy-muted">Project workspace</p>
             </section>
           ) : (
-            <EditorHome onNewProject={projectDialogs.openCreate} />
+          <EditorHome onNewProject={projectActions.openCreate} />
           )
         )}
       </main>
       <ProjectDialogs
-        dialog={projectDialogs.dialog}
-        formName={projectDialogs.formName}
-        onFormNameChange={projectDialogs.setFormName}
-        slugPreview={projectDialogs.slugPreview}
-        validationError={projectDialogs.validationError}
-        isLoading={projectDialogs.isLoading}
-        onClose={projectDialogs.closeDialog}
-        onSubmitName={projectDialogs.submitName}
-        onConfirmDelete={projectDialogs.confirmDelete}
+        dialog={projectActions.dialog}
+        formName={projectActions.formName}
+        onFormNameChange={projectActions.setFormName}
+        slugPreview={projectActions.slugPreview}
+        validationError={projectActions.validationError}
+        isLoading={projectActions.isLoading}
+        onClose={projectActions.closeDialog}
+        onSubmitName={projectActions.submitName}
+        onConfirmDelete={projectActions.confirmDelete}
       />
     </div>
   )

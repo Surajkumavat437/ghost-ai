@@ -41,8 +41,14 @@ function isPublicRoute(request: NextRequest) {
   });
 }
 
+function isProjectApiRoute(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+
+  return pathname === "/api/projects" || pathname.startsWith("/api/projects/");
+}
+
 export default clerkMiddleware(async (auth, request) => {
-  if (!isPublicRoute(request)) {
+  if (!isPublicRoute(request) && !isProjectApiRoute(request)) {
     await auth.protect();
   }
 });

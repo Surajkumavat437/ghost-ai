@@ -4,11 +4,11 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Prisma schema and data layer
+- Editor shell and project persistence
 
 ## Current Goal
 
-- Implement `context/feature-specs/05-prisma.md`: define project data models, add the Prisma client singleton, and create the initial migration.
+- Define the next feature spec and wire the project workspace to the Liveblocks collaborative canvas.
 
 ## Completed
 
@@ -18,6 +18,15 @@ Update this file whenever the current phase, active feature, or implementation s
 - Applied the initial migration `20261030120000_init` to the configured PostgreSQL database.
 - `npm run build` passes with the Prisma client and schema changes.
 - Configured `prebuild` to generate Prisma Client automatically before production builds.
+- Added authenticated `GET` and `POST /api/projects` handlers for listing the current user's projects and creating projects with the schema's CUID ID strategy and default name.
+- Added owner-checked `PATCH` and `DELETE /api/projects/[projectId]` handlers; unauthenticated requests receive `401`, and non-owner mutations receive `403`.
+- Allowed project API requests through the Clerk proxy so the handlers return their required JSON authentication responses.
+- Verified `npm run build` on 2026-10-31 with `/api/projects` and `/api/projects/[projectId]` present in the production route table; the project API feature remains backend-only.
+- Replaced mock project state with server-loaded database projects and API-backed create, rename, and delete actions.
+- Added owner and collaborator project lookup using the authenticated Clerk identity and collaborator email.
+- Added `/editor/[projectId]` and wired project selection and successful creation to navigate to the selected database project workspace.
+- Added refresh and active-workspace redirect behavior after rename and deletion.
+- `npm run build` passes with the server-loaded project routes and API-backed dialog mutations.
 
 - Configured shadcn/ui for Tailwind CSS v4 and generated Button, Card, Dialog, Input, Tabs, Textarea, and ScrollArea.
 - Installed `lucide-react` and the component runtime dependencies.
@@ -48,7 +57,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Next Up
 
-- Continue with the next feature spec.
+- Define and implement the Liveblocks canvas and room authorization flow; canvas persistence, AI generation, and spec artifacts remain unwired.
 
 ## Open Questions
 
@@ -59,6 +68,10 @@ Update this file whenever the current phase, active feature, or implementation s
 - shadcn/ui uses its Base UI primitives with Tailwind CSS v4.
 
 ## Session Notes
+- Fixed the PostgreSQL driver deprecation/security warning by changing the local `DATABASE_URL` SSL mode from `require` to `verify-full` in `.env` and `.env.local`; this preserves the current full hostname-verification behavior while making it explicit.
+- Audited current frontend-to-backend wiring: the editor project list loads on the server through Clerk-authenticated access helpers; create, rename, and delete dialogs call project API routes; project pages verify membership before rendering. Owner-only rename/delete checks and unauthenticated `401` responses are enforced in the route handlers.
+- Confirmed the project workspace is still a placeholder. Liveblocks room/auth, canvas persistence to Blob, starter template import, Trigger.dev generation, and spec generation/download do not yet exist in this checkout; they are not end-to-end wired.
+- Security follow-up: project APIs are explicitly excluded from proxy-level protection, so each handler's Clerk `auth()` guard is the required boundary. Existing project handlers apply this. Project creation validates JSON shape and string type, but there is no documented maximum project-name length or collaborator invite workflow to audit; resolve these when those features are specified.
 
 - Addressed verified CodeRabbit PR findings: auth route config now fails closed unless it targets the implemented sign-in/sign-up routes; corrected Clerk token-context, org-scoped deletion, input-validation, Route Handler, server/client, Markdown, and eval examples; reverted the generated Tabs wrapper edit.
 
