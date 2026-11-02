@@ -31,20 +31,24 @@ export function ShareDialog({ open, onOpenChange, projectId, projectName, canMan
   const [removingId, setRemovingId] = useState<string | null>(null)
   const [isCopied, setIsCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isCollaboratorRefreshFailed, setIsCollaboratorRefreshFailed] = useState(false)
 
   const loadCollaborators = useCallback(async (signal?: AbortSignal, showLoading = true) => {
     if (showLoading) {
       setIsLoading(true)
       setError(null)
+      setIsCollaboratorRefreshFailed(false)
     }
     try {
       const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/collaborators`, { signal })
       const result = await response.json() as { collaborators?: Collaborator[]; error?: string }
       if (!response.ok) throw new Error(result.error ?? "Could not load collaborators")
       setCollaborators(result.collaborators ?? [])
+      setIsCollaboratorRefreshFailed(false)
     } catch (requestError) {
       if (requestError instanceof DOMException && requestError.name === "AbortError") return
       setError(requestError instanceof Error ? requestError.message : "Could not load collaborators")
+      setIsCollaboratorRefreshFailed(true)
     } finally {
       if (!signal?.aborted) setIsLoading(false)
     }
@@ -54,15 +58,19 @@ export function ShareDialog({ open, onOpenChange, projectId, projectName, canMan
     if (!open) return
     const controller = new AbortController()
     async function refreshOnOpen() {
+      setIsLoading(true)
+      setIsCollaboratorRefreshFailed(false)
       try {
         const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/collaborators`, { signal: controller.signal })
         const result = await response.json() as { collaborators?: Collaborator[]; error?: string }
         if (!response.ok) throw new Error(result.error ?? "Could not load collaborators")
         setCollaborators(result.collaborators ?? [])
         setError(null)
+        setIsCollaboratorRefreshFailed(false)
       } catch (requestError) {
         if (requestError instanceof DOMException && requestError.name === "AbortError") return
         setError(requestError instanceof Error ? requestError.message : "Could not load collaborators")
+        setIsCollaboratorRefreshFailed(true)
       } finally {
         if (!controller.signal.aborted) setIsLoading(false)
       }
@@ -166,13 +174,15 @@ export function ShareDialog({ open, onOpenChange, projectId, projectName, canMan
             <div className="mb-3 flex items-center justify-between gap-3">
               <h3 className="text-xs font-semibold text-copy-secondary">People with access</h3>
               <span className="rounded-full border border-surface-border bg-subtle px-2 py-0.5 text-[10px] tabular-nums text-copy-muted">
-                {collaborators.length} {collaborators.length === 1 ? "person" : "people"}
+                {isLoading ? "Updating…" : isCollaboratorRefreshFailed ? "Unavailable" : `${collaborators.length} ${collaborators.length === 1 ? "person" : "people"}`}
               </span>
             </div>
 
             <div className="overflow-hidden rounded-xl border border-surface-border bg-base/45">
               {isLoading ? (
                 <div className="flex items-center justify-center gap-2 px-4 py-8 text-xs text-copy-muted"><LoaderCircle className="size-4 animate-spin" />Loading collaborators</div>
+              ) : isCollaboratorRefreshFailed ? (
+                <div className="px-4 py-8 text-center text-xs text-copy-muted">Collaborator list could not be verified.</div>
               ) : collaborators.length ? (
                 <ul className="divide-y divide-surface-border">
                   {collaborators.map((collaborator) => (

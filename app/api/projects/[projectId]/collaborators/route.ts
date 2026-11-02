@@ -30,11 +30,6 @@ export async function POST(
   const { userId } = await auth();
   if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { projectId } = await context.params;
-  const project = await prisma.project.findUnique({ where: { id: projectId }, select: { ownerId: true } });
-  if (!project) return Response.json({ error: "Project not found" }, { status: 404 });
-  if (project.ownerId !== userId) return Response.json({ error: "Forbidden" }, { status: 403 });
-
   let body: unknown;
   try {
     body = await request.json();
@@ -51,6 +46,11 @@ export async function POST(
   if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return Response.json({ error: "Enter a valid email address" }, { status: 400 });
   }
+
+  const { projectId } = await context.params;
+  const project = await prisma.project.findUnique({ where: { id: projectId }, select: { ownerId: true } });
+  if (!project) return Response.json({ error: "Project not found" }, { status: 404 });
+  if (project.ownerId !== userId) return Response.json({ error: "Forbidden" }, { status: 403 });
 
   try {
     const collaborator = await prisma.projectCollaborator.create({ data: { projectId, email } });
