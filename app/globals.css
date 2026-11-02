@@ -105,6 +105,26 @@
   }
 }
 
+.editor-canvas-grid {
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--border-subtle) 48%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 20px 20px;
+}
+
+.editor-home-glow {
+  background:
+    radial-gradient(ellipse at 76% 32%, color-mix(in srgb, var(--accent-ai) 12%, transparent), transparent 48%),
+    radial-gradient(ellipse at 24% 72%, color-mix(in srgb, var(--accent-primary) 8%, transparent), transparent 52%);
+}
+
+.editor-ai-glow {
+  background:
+    radial-gradient(ellipse at 50% 22%, color-mix(in srgb, var(--accent-ai) 9%, transparent), transparent 58%),
+    var(--bg-surface);
+}
+
 @theme inline {
   --color-bg-base: var(--bg-base);
   --color-bg-surface: var(--bg-surface);

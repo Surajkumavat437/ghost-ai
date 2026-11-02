@@ -8,7 +8,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- Define the next feature spec and wire the project workspace to the Liveblocks collaborative canvas.
+- Define and wire the Liveblocks collaborative canvas and room authorization flow.
 
 ## Completed
 
@@ -27,6 +27,22 @@ Update this file whenever the current phase, active feature, or implementation s
 - Added `/editor/[projectId]` and wired project selection and successful creation to navigate to the selected database project workspace.
 - Added refresh and active-workspace redirect behavior after rename and deletion.
 - `npm run build` passes with the server-loaded project routes and API-backed dialog mutations.
+- Implemented `context/feature-specs/09-share-dialog.md` with the workspace Share button, collaborator list, owner-only email invites/removals, and project-link copy feedback.
+- Added authenticated collaborator API routes; list access follows existing owner/verified-email membership checks, while invite and remove enforce project ownership server-side.
+- Enriched collaborator records with Clerk display names and avatar URLs, with email-only fallback if no Clerk profile is found or profile lookup is unavailable; no local user table was added.
+- `npm run lint`, `npx tsc --noEmit`, `git diff --check`, and `npm run build` pass; the production route table includes both collaborator endpoints.
+- Implemented `context/feature-specs/08-editor-workspace-shell.md` at `/editor/[roomId]` as a server page with Clerk identity lookup and owner/collaborator authorization in shared helpers.
+- Added the `AccessDenied` state for missing and unauthorized projects, with a return link to `/editor`.
+- Added the full-height workspace shell with the project name in the navbar, share and AI sidebar controls, active project highlighting, canvas placeholder, and future AI assistant placeholder.
+- `npm run build` passes with `/editor/[roomId]` in the production route table; the build's TypeScript check passes.
+- Resolved a runtime named-export error on the workspace page by using the established `getAccessibleProject` data-access helper for its membership check; the page keeps the early unauthenticated redirect.
+- Re-ran `npm run lint` and `npm run build` after the fix; both pass, and the production route table still includes `/editor/[roomId]`.
+- Separated Next.js development output into `.next-dev` so production builds cannot overwrite a live development server's rendered/client bundles; verified the dev server responds on `/sign-in` and redirects signed-out `/editor/[roomId]` requests to sign-in.
+- Added `.next-dev` to Git and ESLint ignores; `npm run lint`, `npx tsc --noEmit`, and `git diff --check` pass.
+- Refined the editor UI with a responsive architecture preview, clearer home-page hierarchy, more legible project navigation and selected states, token-based canvas styling, and a responsive AI placeholder panel; no canvas, AI, or share behavior was added.
+- Replaced the AI panel close control with a semantic native button so that control no longer depends on the shared `Button` export; lint and TypeScript checks pass.
+- Restored the `/editor` landing page to its earlier centered title, description, and New Project action while keeping the workspace UI refinements on `/editor/[roomId]`.
+- Refined the AI design agent sidebar with a compact header, consistent spacing, a scrollable content region for short screens, and corrected desktop canvas clearance to match the panel width.
 
 - Configured shadcn/ui for Tailwind CSS v4 and generated Button, Card, Dialog, Input, Tabs, Textarea, and ScrollArea.
 - Installed `lucide-react` and the component runtime dependencies.
@@ -57,7 +73,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Next Up
 
-- Define and implement the Liveblocks canvas and room authorization flow; canvas persistence, AI generation, and spec artifacts remain unwired.
+- Implement Liveblocks room authorization and the collaborative canvas; canvas persistence, AI generation, and spec artifacts remain unwired.
 
 ## Open Questions
 

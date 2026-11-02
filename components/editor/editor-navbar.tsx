@@ -1,6 +1,7 @@
 "use client"
 
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react"
+import Link from "next/link"
+import { Bot, ChevronRight, PanelLeftClose, PanelLeftOpen, Share2, Workflow } from "lucide-react"
 import { UserButton } from "@clerk/nextjs"
 
 import { Button } from "@/components/ui/button"
@@ -8,37 +9,67 @@ import { Button } from "@/components/ui/button"
 interface EditorNavbarProps {
   isSidebarOpen: boolean
   onSidebarToggle: () => void
+  projectName?: string
+  onAiSidebarToggle?: () => void
+  isAiSidebarOpen?: boolean
+  onShareClick?: () => void
+  canManageSharing?: boolean
 }
 
-export function EditorNavbar({
-  isSidebarOpen,
-  onSidebarToggle,
-}: EditorNavbarProps) {
+export function EditorNavbar({ isSidebarOpen, onSidebarToggle, projectName, onAiSidebarToggle, isAiSidebarOpen = false, onShareClick, canManageSharing = false }: EditorNavbarProps) {
   const SidebarIcon = isSidebarOpen ? PanelLeftClose : PanelLeftOpen
 
   return (
-    <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center border-b border-surface-border bg-surface px-4">
-      <div className="flex flex-1 items-center">
+    <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center border-b border-surface-border/80 bg-surface/90 px-2.5 backdrop-blur-xl sm:px-4">
+      <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
         <Button
           aria-label={isSidebarOpen ? "Close projects sidebar" : "Open projects sidebar"}
           aria-expanded={isSidebarOpen}
+          className="shrink-0 text-copy-muted hover:text-copy-primary"
           onClick={onSidebarToggle}
           size="icon"
+          title={isSidebarOpen ? "Close projects" : "Open projects"}
           variant="ghost"
         >
-          <SidebarIcon className="h-5 w-5" />
+          <SidebarIcon className="h-[18px] w-[18px]" />
         </Button>
+        <span aria-hidden="true" className="h-5 w-px bg-surface-border" />
+        <Link aria-label="Ghost AI home" className="flex min-w-0 items-center gap-2" href="/editor">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-brand/20 bg-accent-dim text-brand shadow-[0_0_18px_var(--accent-primary-dim)]">
+            <Workflow className="h-4 w-4" />
+          </span>
+          <span className="hidden text-[13px] font-semibold tracking-tight text-copy-primary sm:inline">Ghost AI</span>
+        </Link>
+        {projectName && <>
+          <ChevronRight aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-copy-faint" />
+          <span className="min-w-0 truncate text-[13px] font-medium text-copy-secondary sm:max-w-56">{projectName}</span>
+        </>}
       </div>
-      <div className="flex flex-1 justify-center">
-        <span className="text-sm font-semibold tracking-wide text-copy-primary">
-          Ghost AI
-        </span>
-      </div>
-      <div className="flex flex-1 justify-end">
+
+      <div className="flex shrink-0 items-center justify-end gap-1 sm:gap-2">
+        {projectName && <>
+          <Button aria-label="Share project" className="text-copy-muted" onClick={onShareClick} size="icon" title={canManageSharing ? "Share project" : "View collaborators"} variant="ghost">
+            <Share2 className="h-4 w-4" />
+          </Button>
+          <Button
+            aria-label={isAiSidebarOpen ? "Close AI panel" : "Open AI panel"}
+            aria-expanded={isAiSidebarOpen}
+            aria-pressed={isAiSidebarOpen}
+            className={isAiSidebarOpen ? "bg-ai/10 text-ai-text hover:bg-ai/15" : "text-copy-muted"}
+            onClick={onAiSidebarToggle}
+            size="icon"
+            title={isAiSidebarOpen ? "Close AI panel" : "Open AI panel"}
+            variant="ghost"
+          >
+            <Bot className="h-[18px] w-[18px]" />
+          </Button>
+        </>}
+        <span aria-hidden="true" className="mx-1 h-5 w-px bg-surface-border" />
         <UserButton
           appearance={{
             elements: {
               rootBox: "!w-fit !justify-end",
+              avatarBox: "!size-8",
             },
           }}
         />
