@@ -1,27 +1,41 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { StarterTemplatesModal } from "@/components/editor/starter-templates-modal";
 import type { CanvasTemplate } from "@/components/editor/starter-templates";
 
 interface StarterTemplatesContextValue {
   openStarterTemplates: () => void;
-  pendingTemplate: CanvasTemplate | null;
-  consumePendingTemplate: () => void;
+  pendingTemplates: QueuedCanvasTemplate[];
+  enqueueTemplate: (template: CanvasTemplate) => void;
+  acknowledgeTemplate: (requestId: string) => void;
+}
+
+export interface QueuedCanvasTemplate {
+  id: string;
+  template: CanvasTemplate;
 }
 
 const StarterTemplatesContext = createContext<StarterTemplatesContextValue | null>(null);
 
 export function StarterTemplatesProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [pendingTemplate, setPendingTemplate] = useState<CanvasTemplate | null>(null);
-  const consumePendingTemplate = useCallback(() => setPendingTemplate(null), []);
+  const [pendingTemplates, setPendingTemplates] = useState<QueuedCanvasTemplate[]>([]);
+  const nextImportId = useRef(0);
+  const enqueueTemplate = useCallback((template: CanvasTemplate) => {
+    const id = `starter-template-${nextImportId.current++}`;
+    setPendingTemplates((current) => [...current, { id, template }]);
+  }, []);
+  const acknowledgeTemplate = useCallback((requestId: string) => {
+    setPendingTemplates((current) => current.filter((queued) => queued.id !== requestId));
+  }, []);
   const value = useMemo(() => ({
     openStarterTemplates: () => setIsOpen(true),
-    pendingTemplate,
-    consumePendingTemplate,
-  }), [pendingTemplate, consumePendingTemplate]);
+    pendingTemplates,
+    enqueueTemplate,
+    acknowledgeTemplate,
+  }), [pendingTemplates, enqueueTemplate, acknowledgeTemplate]);
 
   return (
     <StarterTemplatesContext.Provider value={value}>
@@ -29,7 +43,7 @@ export function StarterTemplatesProvider({ children }: { children: ReactNode }) 
       <StarterTemplatesModal
         open={isOpen}
         onOpenChange={setIsOpen}
-        onImport={(template) => setPendingTemplate(template)}
+        onImport={enqueueTemplate}
       />
     </StarterTemplatesContext.Provider>
   );

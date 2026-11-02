@@ -17,7 +17,7 @@ const iconButtonClass = "flex size-8 items-center justify-center rounded-full te
 
 export function CanvasControlBar({ flow, canUndo, canRedo, undo, redo }: CanvasControlBarProps) {
   return (
-    <div aria-label="Canvas controls" className="absolute bottom-5 left-4 z-20 flex items-center gap-1 rounded-full border border-surface-border bg-surface/95 p-1.5 shadow-xl shadow-base/50 backdrop-blur">
+    <div aria-label="Canvas controls" className="absolute bottom-20 left-4 z-20 flex items-center gap-1 rounded-full border border-surface-border bg-surface/95 p-1.5 shadow-xl shadow-base/50 backdrop-blur min-[44rem]:bottom-5">
       <div role="group" aria-label="Zoom controls" className="flex items-center gap-0.5">
         <button type="button" aria-label="Zoom out" title="Zoom out" className={iconButtonClass} onClick={() => void flow.zoomOut({ duration: 180 })}>
           <ZoomOut className="size-4" />

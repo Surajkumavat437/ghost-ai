@@ -40,6 +40,7 @@ Add a small starter template library so users can start a canvas from a pre-buil
    - place the imported graph beside the current node bounds with clear spacing so it does not overlap existing work
    - generate fresh node and edge IDs for every import
    - fit the view to both the existing graph and the imported template
+   - queue imports in `components/editor/starter-templates-context.tsx` until the collaborative canvas is connected, and acknowledge each item only after its nodes and edges are present in Liveblocks state
    - keep this inside the existing collaborative canvas state
 
 ## Scope Limits
@@ -54,6 +55,7 @@ Add a small starter template library so users can start a canvas from a pre-buil
 
 - Template data is defined using shared canvas types.
 - Import modal renders template cards with previews.
-- Import action replaces the current canvas through the existing node and edge state flow.
+- Import action adds the template beside existing canvas content without replacing, deleting, or modifying existing nodes or edges.
+- Pending template imports are queued by `components/editor/starter-templates-context.tsx` and applied through the existing collaborative node and edge state flow after the room connects.
 - Editor navbar includes the import entry point.
 - `npm run build` passes.

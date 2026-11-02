@@ -16,10 +16,14 @@ function isEditableTarget(target: EventTarget | null): boolean {
   return target.isContentEditable || Boolean(target.closest("input, textarea, select, [contenteditable='true'], [role='textbox']"));
 }
 
+function isDialogOpen(): boolean {
+  return document.querySelector('[data-slot="dialog-content"][data-open]') !== null;
+}
+
 export function useKeyboardShortcuts({ flow, undo, redo }: UseKeyboardShortcutsOptions) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.altKey || isEditableTarget(event.target)) return;
+      if (event.defaultPrevented || event.altKey || isEditableTarget(event.target) || isDialogOpen()) return;
 
       const commandPressed = event.metaKey || event.ctrlKey;
       if (commandPressed && event.key.toLowerCase() === "z") {

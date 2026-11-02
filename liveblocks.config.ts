@@ -1,3 +1,7 @@
+import type { LiveblocksFlow } from "@liveblocks/react-flow";
+
+import type { CanvasEdge, CanvasNode } from "./types/canvas";
+
 // Define Liveblocks types for the application.
 // https://liveblocks.io/docs/api-reference/liveblocks-react#Typing-your-data
 declare global {
@@ -6,7 +10,9 @@ declare global {
       cursor: { x: number; y: number } | null;
       isThinking: boolean;
     };
-    Storage: Record<string, never>;
+    Storage: {
+      flow?: LiveblocksFlow<CanvasNode, CanvasEdge>;
+    };
     UserMeta: {
       id: string;
       info: {

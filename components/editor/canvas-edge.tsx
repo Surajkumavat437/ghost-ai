@@ -61,13 +61,7 @@ export function CanvasEdgeRenderer({
         id={id}
         path={edgePath}
         markerEnd={markerEnd}
-        interactionWidth={20}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        onDoubleClick={(event) => {
-          event.stopPropagation();
-          beginEditing();
-        }}
+        interactionWidth={0}
         style={{
           stroke: "var(--text-primary)",
           strokeWidth: 1.75,
@@ -75,6 +69,20 @@ export function CanvasEdgeRenderer({
           strokeLinejoin: "round",
           opacity: active ? 1 : 0.68,
           transition: "opacity 120ms ease",
+        }}
+      />
+      <path
+        d={edgePath}
+        className="react-flow__edge-interaction"
+        fill="none"
+        stroke="transparent"
+        strokeWidth={20}
+        pointerEvents="stroke"
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onDoubleClick={(event) => {
+          event.stopPropagation();
+          beginEditing();
         }}
       />
       {(savedLabel || active || editing) && (
@@ -103,7 +111,7 @@ export function CanvasEdgeRenderer({
                 onMouseDown={(event) => event.stopPropagation()}
                 onClick={(event) => event.stopPropagation()}
                 style={{ width: `${Math.max(4, draft.length + 1)}ch` }}
-                className="nodrag nopan min-w-16 rounded-full border border-surface-border bg-surface px-2.5 py-1 text-center text-xs text-copy-primary outline-none focus:border-brand"
+                className="nodrag nopan min-w-16 max-w-52 rounded-full border border-surface-border bg-surface px-2.5 py-1 text-center text-xs text-copy-primary outline-none focus:border-brand"
               />
             ) : savedLabel ? (
               <button

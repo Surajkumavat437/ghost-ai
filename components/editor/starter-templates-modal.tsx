@@ -121,7 +121,7 @@ export function StarterTemplatesModal({ open, onOpenChange, onImport }: StarterT
             <span className="flex size-8 items-center justify-center rounded-lg border border-brand/20 bg-accent-dim text-brand"><Boxes className="size-4" /></span>
             Starter templates
           </DialogTitle>
-          <DialogDescription>Choose a system design to replace the current canvas.</DialogDescription>
+          <DialogDescription>Add a system design beside your existing canvas. Existing nodes and edges stay unchanged.</DialogDescription>
         </DialogHeader>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

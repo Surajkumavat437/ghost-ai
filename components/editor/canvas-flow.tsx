@@ -17,7 +17,7 @@ import {
   type NodeProps,
   type EdgeTypes,
 } from "@xyflow/react";
-import { useCanRedo, useCanUndo, useRedo, useStatus, useUndo } from "@liveblocks/react";
+import { useCanRedo, useCanUndo, useMutation, useRedo, useStatus, useUndo } from "@liveblocks/react";
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { createCanvasNodeId, parseCanvasShapeDropPayload, SHAPE_SIZES } from "@/lib/canvas-shapes";
@@ -26,7 +26,7 @@ import { NODE_COLORS, NODE_SHAPES, type CanvasEdge, type CanvasNode, type NodeSh
 import { CanvasEdgeRenderer, UpdateCanvasEdgeLabelContext } from "@/components/editor/canvas-edge";
 import { CanvasControlBar } from "@/components/editor/canvas-control-bar";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
-import { useStarterTemplates } from "@/components/editor/starter-templates-context";
+import { useStarterTemplates, type QueuedCanvasTemplate } from "@/components/editor/starter-templates-context";
 
 function ShapeIcon({ shape }: { shape: NodeShape }) {
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinejoin: "round" as const };
@@ -98,6 +98,7 @@ function CanvasNodeRenderer({ id, data, selected, dragging }: NodeProps<CanvasNo
         isVisible={selected}
         minWidth={80}
         minHeight={56}
+        keepAspectRatio={data.shape === "circle"}
         color="var(--text-muted)"
         handleClassName="!z-30 !size-4 !rounded-sm !border-2 !border-base !bg-copy-secondary shadow-md"
         lineClassName="!border-copy-muted/50"
@@ -221,95 +222,136 @@ function CanvasFlowContent() {
     });
   const connectionStatus = useStatus();
   const flow = useReactFlow<CanvasNode, CanvasEdge>();
-  const { screenToFlowPosition, getNode, getEdge } = flow;
+  const { screenToFlowPosition } = flow;
+  const { zoom } = useViewport();
   const canUndo = useCanUndo();
   const canRedo = useCanRedo();
   const undo = useUndo();
   const redo = useRedo();
-  const { pendingTemplate, consumePendingTemplate } = useStarterTemplates();
+  const { pendingTemplates, acknowledgeTemplate } = useStarterTemplates();
+  const applyingTemplateRef = useRef<QueuedCanvasTemplate & { nodes: CanvasNode[]; edges: CanvasEdge[]; attempted: boolean } | null>(null);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [retryVersion, setRetryVersion] = useState(0);
+  const scheduleTemplateRetry = useCallback(() => {
+    if (retryTimerRef.current) return;
+    retryTimerRef.current = setTimeout(() => {
+      retryTimerRef.current = null;
+      if (applyingTemplateRef.current) applyingTemplateRef.current.attempted = false;
+      setRetryVersion((version) => version + 1);
+    }, 1000);
+  }, []);
+  useEffect(() => () => {
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+  }, []);
   useKeyboardShortcuts({ flow, undo, redo });
   useEffect(() => {
-    if (!pendingTemplate) return;
-
-    const getNodeDimensions = (node: CanvasNode) => ({
-      width: Number(node.measured?.width ?? node.width ?? node.style?.width) || 180,
-      height: Number(node.measured?.height ?? node.height ?? node.style?.height) || 90,
-    });
-    const templateBounds = pendingTemplate.nodes.reduce((bounds, node) => {
-      const size = getNodeDimensions(node);
-      return {
-        minX: Math.min(bounds.minX, node.position.x),
-        minY: Math.min(bounds.minY, node.position.y),
-        maxX: Math.max(bounds.maxX, node.position.x + size.width),
-        maxY: Math.max(bounds.maxY, node.position.y + size.height),
-      };
-    }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
-    const existingBounds = nodes.reduce((bounds, node) => {
-      const size = getNodeDimensions(node);
-      return {
-        minX: Math.min(bounds.minX, node.position.x),
-        minY: Math.min(bounds.minY, node.position.y),
-        maxX: Math.max(bounds.maxX, node.position.x + size.width),
-        maxY: Math.max(bounds.maxY, node.position.y + size.height),
-      };
-    }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
-    const hasExistingNodes = nodes.length > 0;
-    const offsetX = hasExistingNodes ? existingBounds.maxX + 180 - templateBounds.minX : -templateBounds.minX;
-    const offsetY = hasExistingNodes ? existingBounds.minY - templateBounds.minY : -templateBounds.minY;
-    let nextNodes: CanvasNode[];
-    const nodeIds = new Map<string, string>();
-    try {
-      nextNodes = pendingTemplate.nodes.map((node) => {
-        const id = createCanvasNodeId(node.data.shape);
-        nodeIds.set(node.id, id);
-        return {
-          ...node,
-          id,
-          position: { x: node.position.x + offsetX, y: node.position.y + offsetY },
-        };
+    let applying = applyingTemplateRef.current;
+    if (applying) {
+      const nodesApplied = applying.nodes.every((node) => nodes.some((current) => current.id === node.id));
+      const edgesApplied = applying.edges.every((edge) => edges.some((current) => current.id === edge.id));
+      if (nodesApplied && edgesApplied) {
+        applyingTemplateRef.current = null;
+        if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+        acknowledgeTemplate(applying.id);
+        return;
+      }
+    } else {
+      if (connectionStatus !== "connected" || pendingTemplates.length === 0) return;
+      const request = pendingTemplates[0];
+      const getNodeDimensions = (node: CanvasNode) => ({
+        width: Number(node.measured?.width ?? node.width ?? node.style?.width) || 180,
+        height: Number(node.measured?.height ?? node.height ?? node.style?.height) || 90,
       });
-    } catch {
-      consumePendingTemplate();
-      return;
+      const templateBounds = request.template.nodes.reduce((bounds, node) => {
+        const size = getNodeDimensions(node);
+        return {
+          minX: Math.min(bounds.minX, node.position.x),
+          minY: Math.min(bounds.minY, node.position.y),
+          maxX: Math.max(bounds.maxX, node.position.x + size.width),
+          maxY: Math.max(bounds.maxY, node.position.y + size.height),
+        };
+      }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+      const existingBounds = nodes.reduce((bounds, node) => {
+        const size = getNodeDimensions(node);
+        return {
+          minX: Math.min(bounds.minX, node.position.x),
+          minY: Math.min(bounds.minY, node.position.y),
+          maxX: Math.max(bounds.maxX, node.position.x + size.width),
+          maxY: Math.max(bounds.maxY, node.position.y + size.height),
+        };
+      }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+      const hasExistingNodes = nodes.length > 0;
+      const offsetX = hasExistingNodes ? existingBounds.maxX + 180 - templateBounds.minX : -templateBounds.minX;
+      const offsetY = hasExistingNodes ? existingBounds.minY - templateBounds.minY : -templateBounds.minY;
+      const nodeIds = new Map<string, string>();
+      let nextNodes: CanvasNode[];
+      try {
+        nextNodes = request.template.nodes.map((node) => {
+          const id = createCanvasNodeId(node.data.shape);
+          nodeIds.set(node.id, id);
+          return {
+            ...node,
+            id,
+            position: { x: node.position.x + offsetX, y: node.position.y + offsetY },
+          };
+        });
+      } catch {
+        scheduleTemplateRetry();
+        return;
+      }
+      const nextEdges = request.template.edges.map((edge, index) => {
+        const source = nodeIds.get(edge.source);
+        const target = nodeIds.get(edge.target);
+        if (!source || !target) return null;
+        return { ...edge, id: `edge-${source}-${target}-${index}`, source, target };
+      }).filter((edge): edge is CanvasEdge => edge !== null);
+      applying = { ...request, nodes: nextNodes, edges: nextEdges, attempted: false };
+      applyingTemplateRef.current = applying;
     }
-    const nextEdges = pendingTemplate.edges.map((edge, index) => {
-      const source = nodeIds.get(edge.source);
-      const target = nodeIds.get(edge.target);
-      if (!source || !target) return null;
-      return { ...edge, id: `edge-${source}-${target}-${index}`, source, target };
-    }).filter((edge): edge is CanvasEdge => edge !== null);
 
-    // Add fresh identities beside the existing graph; do not mutate prior canvas work.
-    onNodesChange(nextNodes.map((item) => ({ type: "add" as const, item })));
-    onEdgesChange(nextEdges.map((item) => ({ type: "add" as const, item })));
-    requestAnimationFrame(() => {
-      void flow.fitView({ nodes: [...nodes, ...nextNodes], padding: 0.2, duration: 350 });
-    });
-    consumePendingTemplate();
-  }, [pendingTemplate, consumePendingTemplate, nodes, edges, onNodesChange, onEdgesChange, onDelete, flow]);
-  const updateNodeLabel = useCallback((id: string, label: string) => {
-    const node = getNode(id);
-    if (!node) return;
-    onNodesChange([{ type: "replace", id, item: { ...node, data: { ...node.data, label } } }]);
-  }, [getNode, onNodesChange]);
-  const updateEdgeLabel = useCallback((id: string, label: string) => {
-    const edge = getEdge(id);
-    if (!edge) return;
-    onEdgesChange([{ type: "replace", id, item: { ...edge, data: { ...edge.data, label } } }]);
-  }, [getEdge, onEdgesChange]);
-  const updateNodeColor = useCallback((id: string, color: CanvasNode["data"]["color"], textColor: NonNullable<CanvasNode["data"]["textColor"]>) => {
-    const node = getNode(id);
-    if (!node) return;
-    onNodesChange([{ type: "replace", id, item: { ...node, data: { ...node.data, color, textColor } } }]);
-  }, [getNode, onNodesChange]);
+    if (connectionStatus !== "connected" || !applying || applying.attempted) return;
+    try {
+      const newNodes = applying.nodes.filter((node) => !nodes.some((current) => current.id === node.id));
+      const newEdges = applying.edges.filter((edge) => !edges.some((current) => current.id === edge.id));
+      if (newNodes.length > 0) onNodesChange(newNodes.map((item) => ({ type: "add" as const, item })));
+      if (newEdges.length > 0) onEdgesChange(newEdges.map((item) => ({ type: "add" as const, item })));
+      requestAnimationFrame(() => {
+        void flow.fitView({ nodes: [...nodes, ...applying.nodes], padding: 0.2, duration: 350 });
+      });
+      applying.attempted = true;
+      scheduleTemplateRetry();
+    } catch {
+      scheduleTemplateRetry();
+    }
+  }, [pendingTemplates, acknowledgeTemplate, connectionStatus, nodes, edges, onNodesChange, onEdgesChange, flow, scheduleTemplateRetry, retryVersion]);
+  const updateNodeLabel = useMutation(({ storage }, id: string, label: string) => {
+    const data = storage.get("flow")?.get("nodes").get(id)?.get("data");
+    data?.set("label", label);
+  }, []);
+  const updateEdgeLabel = useMutation(({ storage }, id: string, label: string) => {
+    const data = storage.get("flow")?.get("edges").get(id)?.get("data");
+    data?.set("label", label);
+  }, []);
+  const updateNodeColor = useMutation((
+    { storage },
+    id: string,
+    color: CanvasNode["data"]["color"],
+    textColor: NonNullable<CanvasNode["data"]["textColor"]>,
+  ) => {
+    const data = storage.get("flow")?.get("nodes").get(id)?.get("data");
+    if (!data) return;
+    data.set("color", color);
+    data.set("textColor", textColor);
+  }, []);
   const dropTargetRef = useRef<HTMLDivElement>(null);
-  const [dragPreview, setDragPreview] = useState<{ shape: NodeShape; x: number; y: number } | null>(null);
+  const [dragPreview, setDragPreview] = useState<{ shape: NodeShape; position: { x: number; y: number } | null } | null>(null);
   const handleDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     const bounds = event.currentTarget.getBoundingClientRect();
-    setDragPreview((current) => current ? { ...current, x: event.clientX - bounds.left, y: event.clientY - bounds.top } : current);
+    setDragPreview((current) => current ? { ...current, position: { x: event.clientX - bounds.left, y: event.clientY - bounds.top } } : current);
   }, []);
-  const handleShapeDragStart = useCallback((shape: NodeShape) => setDragPreview({ shape, x: 0, y: 0 }), []);
+  const handleShapeDragStart = useCallback((shape: NodeShape) => setDragPreview({ shape, position: null }), []);
   const clearDragPreview = useCallback(() => setDragPreview(null), []);
   const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -392,13 +434,13 @@ function CanvasFlowContent() {
       <ShapeToolbar onDragStart={handleShapeDragStart} onDragEnd={clearDragPreview} />
       <CanvasControlBar flow={flow} canUndo={canUndo} canRedo={canRedo} undo={undo} redo={redo} />
 
-      {dragPreview && (() => {
+      {dragPreview?.position && (() => {
         const size = SHAPE_SIZES[dragPreview.shape];
         return (
           <div
             aria-hidden="true"
             className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2 opacity-60"
-            style={{ left: dragPreview.x, top: dragPreview.y, width: size.width, height: size.height }}
+            style={{ left: dragPreview.position.x, top: dragPreview.position.y, width: size.width * zoom, height: size.height * zoom }}
           >
             <ShapeSurface shape={dragPreview.shape} color={NODE_COLORS[0].color} textColor={NODE_COLORS[0].textColor} strokeWidth={2} />
           </div>
