@@ -18,9 +18,9 @@ export async function enrichCollaborators(
 
   try {
     const client = await clerkClient();
-    for (let index = 0; index < emails.length; index += 500) {
-      const batch = emails.slice(index, index + 500);
-      const { data: users } = await client.users.getUserList({ emailAddress: batch, limit: 500 });
+    for (let index = 0; index < emails.length; index += 100) {
+      const batch = emails.slice(index, index + 100);
+      const { data: users } = await client.users.getUserList({ emailAddress: batch, limit: batch.length });
 
       for (const user of users) {
         const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim()
