@@ -89,7 +89,7 @@ Small white circular handles, hidden by default, revealed on node hover. Appear 
 
 React Flow `<Background>` component. Canvas sits on the base background color.
 
-Canvas workspaces use the full available editor viewport for React Flow, without an inset card frame or in-canvas title header. Keep the room connection status as a compact, content-sized, non-interactive badge in the bottom-right corner, alongside the token-styled interactive minimap and subtle pan/zoom guidance. Keep the dot pattern legible with theme-token contrast and a stable screen-space size and spacing across zoom levels.
+Canvas workspaces use the full available editor viewport for React Flow, without an inset card frame or in-canvas title header. Keep the room connection status as a compact, content-sized, non-interactive badge in the bottom-right corner. The floating canvas control bar sits at the bottom-left; subtle pan/zoom guidance sits above it. Keep the dot pattern legible with theme-token contrast and a stable screen-space size and spacing across zoom levels.
 
 ## Component Library
 

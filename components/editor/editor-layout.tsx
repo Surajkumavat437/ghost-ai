@@ -9,6 +9,7 @@ import { ProjectSidebar } from "@/components/editor/project-sidebar"
 import { EditorHome } from "@/components/editor/editor-home"
 import { ProjectDialogs } from "@/components/editor/project-dialogs"
 import { ShareDialog } from "@/components/editor/share-dialog"
+import { StarterTemplatesProvider, useStarterTemplates } from "@/components/editor/starter-templates-context"
 import type { EditorProject } from "@/components/editor/use-project-dialogs"
 import { useProjectActions } from "@/hooks/use-project-actions"
 
@@ -19,7 +20,16 @@ interface EditorLayoutProps {
 }
 
 export function EditorLayout({ children, projects, activeProject = null }: EditorLayoutProps) {
+  return (
+    <StarterTemplatesProvider>
+      <EditorLayoutContent projects={projects} activeProject={activeProject}>{children}</EditorLayoutContent>
+    </StarterTemplatesProvider>
+  )
+}
+
+function EditorLayoutContent({ children, projects, activeProject = null }: EditorLayoutProps) {
   const router = useRouter()
+  const { openStarterTemplates } = useStarterTemplates()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isAiSidebarOpen, setIsAiSidebarOpen] = useState(false)
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false)
@@ -31,6 +41,7 @@ export function EditorLayout({ children, projects, activeProject = null }: Edito
         isSidebarOpen={isSidebarOpen}
         onSidebarToggle={() => setIsSidebarOpen((open) => !open)}
         projectName={activeProject?.name}
+        onStarterTemplatesClick={openStarterTemplates}
         canManageSharing={activeProject?.owned ?? false}
         onShareClick={() => setIsShareDialogOpen(true)}
         onAiSidebarToggle={() => setIsAiSidebarOpen((open) => !open)}

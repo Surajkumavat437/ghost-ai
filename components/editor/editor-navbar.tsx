@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import dynamic from "next/dynamic"
-import { Bot, ChevronRight, PanelLeftClose, PanelLeftOpen, Share2, Workflow } from "lucide-react"
+import { Bot, ChevronRight, Layers3, PanelLeftClose, PanelLeftOpen, Share2, Workflow } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 
@@ -15,13 +15,14 @@ interface EditorNavbarProps {
   isSidebarOpen: boolean
   onSidebarToggle: () => void
   projectName?: string
+  onStarterTemplatesClick?: () => void
   onAiSidebarToggle?: () => void
   isAiSidebarOpen?: boolean
   onShareClick?: () => void
   canManageSharing?: boolean
 }
 
-export function EditorNavbar({ isSidebarOpen, onSidebarToggle, projectName, onAiSidebarToggle, isAiSidebarOpen = false, onShareClick, canManageSharing = false }: EditorNavbarProps) {
+export function EditorNavbar({ isSidebarOpen, onSidebarToggle, projectName, onStarterTemplatesClick, onAiSidebarToggle, isAiSidebarOpen = false, onShareClick, canManageSharing = false }: EditorNavbarProps) {
   const SidebarIcon = isSidebarOpen ? PanelLeftClose : PanelLeftOpen
 
   return (
@@ -53,6 +54,9 @@ export function EditorNavbar({ isSidebarOpen, onSidebarToggle, projectName, onAi
 
       <div className="flex shrink-0 items-center justify-end gap-1 sm:gap-2">
         {projectName && <>
+          <Button aria-label="Import starter template" className="text-copy-muted" onClick={onStarterTemplatesClick} size="icon" title="Import starter template" variant="ghost">
+            <Layers3 className="h-4 w-4" />
+          </Button>
           <Button aria-label="Share project" className="text-copy-muted" onClick={onShareClick} size="icon" title={canManageSharing ? "Share project" : "View collaborators"} variant="ghost">
             <Share2 className="h-4 w-4" />
           </Button>
