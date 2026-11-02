@@ -9,12 +9,12 @@
 | Auth             | Clerk                   | User identity and route protection                             |
 | Database         | Prisma + PostgreSQL     | Relational metadata: projects, collaborators, specs, task runs |
 | Canvas           | Liveblocks + React Flow | Real-time collaborative canvas, presence, and cursors          |
-| Background tasks | Trigger.dev             | Durable AI generation workflows                                |
+| Background tasks | Trigger.dev + Vercel Cron | Durable AI generation and Liveblocks cleanup workflows      |
 | Artifact storage | Vercel Blob             | Canvas snapshots and generated Markdown specs                  |
 
 ## System Boundaries
 
-- `app/api` — Authenticated request handlers: input validation, ownership checks, task triggering, and persistence.
+- `app/api` — Authenticated request handlers: input validation, ownership checks, task triggering, and persistence. The secret-protected cron route retries Liveblocks room cleanup outbox entries.
 - `trigger` — Long-running background jobs: AI design generation and spec generation.
 - `lib` — Shared infrastructure: Prisma client, access control helpers, and utilities.
 - `components` — UI composition: canvas surfaces, sidebars, dialogs, and interactive elements.
@@ -26,6 +26,7 @@
 - **Database**: metadata, ownership, relationships, and task run records.
 - **Vercel Blob**: generated artifacts — canvas snapshots at `canvas/{projectId}.json` and specs at `specs/{projectId}/{specId}.md`.
 - Project records, spec records, and task run records belong in PostgreSQL.
+- Liveblocks room cleanup outbox rows also belong in PostgreSQL and have no project foreign key, so they survive project deletion.
 - Canvas content and Markdown output are stored in and retrieved from Vercel Blob.
 - The blob URL is stored in the database (`canvasJsonPath`, `filePath`) as the reference to the artifact.
 
@@ -36,6 +37,8 @@
 - Only authenticated users can access protected routes.
 - Only the owner or a collaborator can mutate project resources.
 - Liveblocks room tokens are issued only after verifying project membership.
+- A project's Liveblocks room ID equals its project ID. Owner deletion and outbox enqueue commit in one transaction; room deletion happens after commit and is retried by Vercel Cron.
+- Room provisioning, project deletion, and cleanup use the same PostgreSQL advisory lock. Cleanup rechecks that the project is absent before deleting, and treats an already-missing Liveblocks room as success.
 
 ## Starter System Designs
 

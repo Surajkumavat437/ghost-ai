@@ -8,10 +8,18 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- Define and wire the Liveblocks collaborative canvas and room authorization flow.
+- Implement canvas persistence and starter template import.
 
 ## Completed
 
+- Resolved the four minor canvas/API review findings: collaborator ownership is checked before parsing, invalid/null shape payloads are rejected, dropped nodes use canonical dimensions, and IDs use secure-context UUIDs or cryptographically random bytes. Added focused tests for authorization order, payload validation, dimensions, and ID uniqueness.
+- Added four-sided source and target React Flow handles to canvas nodes, with distinct IDs and tests for handle placement and loose connection mode.
+- Added durable Liveblocks room cleanup: project deletion atomically records an outbox item, post-commit cleanup is idempotent, failures retry with backoff, stale claims recover, and a secret-protected daily Vercel Cron drains pending work. Provisioning and cleanup share a room lock to prevent deleting rooms for active projects.
+- Added tests for transactional outbox behavior and cleanup failure/active-project edge cases. Prisma format, generate, validate, TypeScript, ESLint, and the test suite pass.
+
+- Implemented the shape panel from `context/feature-specs/12-shape-panel.md`: the canvas now has draggable buttons for all six shapes, carries shape and default dimensions in each drag payload, converts drop coordinates through React Flow, creates empty default-colored `canvasNode` entries with timestamp/counter IDs, and renders each shape with matching SVG geometry and a white outline. `npm run build` passes on 2026-11-02.
+- Implemented Liveblocks types for cursor presence, thinking state, and user metadata; added a cached Node client and deterministic cursor colors.
+- Added authenticated `POST /api/liveblocks-auth`, with project membership checks, private room creation, and room-scoped write tokens carrying Clerk user name, avatar, and cursor color metadata. `npm run build` passes with the new route in the production route table.
 - Added the `Project` and `ProjectCollaborator` Prisma models in `prisma/models/project.prisma`, including the requested status enum, cascade relation, unique constraint, and indexes.
 - Added a cached Prisma client singleton in `lib/prisma.ts`, using Prisma Accelerate for `prisma+postgres://` URLs and the PostgreSQL driver adapter for direct URLs.
 - Validated and formatted the Prisma schema, generated Prisma Client, and created the initial PostgreSQL migration.
@@ -43,6 +51,15 @@ Update this file whenever the current phase, active feature, or implementation s
 - Replaced the AI panel close control with a semantic native button so that control no longer depends on the shared `Button` export; lint and TypeScript checks pass.
 - Restored the `/editor` landing page to its earlier centered title, description, and New Project action while keeping the workspace UI refinements on `/editor/[roomId]`.
 - Refined the AI design agent sidebar with a compact header, consistent spacing, a scrollable content region for short screens, and corrected desktop canvas clearance to match the panel width.
+- Set project and AI sidebars to closed by default, reset both to closed on project changes, and close them immediately when selecting another project.
+- Refined the collaborative canvas with a connection-status header, intentional empty state, dark themed minimap, subtle pan/zoom hint, and smoother zoom bounds.
+- Replaced the workspace canvas placeholder with a client-side Liveblocks room wrapper using `/api/liveblocks-auth`, project ID room authorization, initial null cursor presence, loading UI, and a connection error fallback.
+- Added typed canvas node and edge contracts and wired React Flow node and edge state to Liveblocks with suspense, loose connections, fit-to-view, a minimap, and a dot background.
+- Re-read `context/feature-specs/11-base-canvas.md` and verified its scope is implemented: server-rendered authorized workspace, Liveblocks providers and room presence, suspense/loading/error states, empty Liveblocks-synced React Flow state, shared canvas types, loose connections, fit-to-view, minimap, and dot background. No extra canvas controls, custom renderers, persistence, or AI behavior were added. `npm run build` passes on 2026-11-02.
+- Verified `npm run build` on 2026-11-02; the production build and TypeScript checks pass with `/editor/[roomId]` in the route table.
+- Traced the reported Liveblocks authentication 500 to the server log: `LIVEBLOCKS_SECRET_KEY` was absent from both local environment files. Hardened `/api/liveblocks-auth` to reject malformed or oversized room IDs, return `503` for missing server configuration, avoid caching auth responses, and return sanitized JSON for unexpected failures. The key was subsequently configured and verified with a read-only Liveblocks API request.
+- Confirmed the configured Liveblocks secret with a read-only Liveblocks API request. Added `/api/liveblocks-auth` to the Clerk proxy's API pass-through list so signed-out callers receive the route's JSON `401`; room access continues to be enforced by Clerk identity and the project membership check inside the handler.
+- Re-verified with `npm run lint`, `npx tsc --noEmit`, and `npm run build`; all pass. A direct unauthenticated POST to `/api/liveblocks-auth` returns `401` JSON. A signed-in project-to-room token exchange could not be exercised because the browser access host was unavailable.
 
 - Configured shadcn/ui for Tailwind CSS v4 and generated Button, Card, Dialog, Input, Tabs, Textarea, and ScrollArea.
 - Installed `lucide-react` and the component runtime dependencies.
@@ -73,20 +90,27 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Next Up
 
-- Implement Liveblocks room authorization and the collaborative canvas; canvas persistence, AI generation, and spec artifacts remain unwired.
+- Add canvas persistence and starter template import; AI generation and spec artifacts remain unwired.
 
 ## Open Questions
 
-- None.
+- Confirm `LIVEBLOCKS_SECRET_KEY` is configured in the deployment secret store; only local `.env` files were checked during this verification.
 
 ## Architecture Decisions
 
 - shadcn/ui uses its Base UI primitives with Tailwind CSS v4.
 
 ## Session Notes
+- Prevented the Clerk `UserButton` hydration mismatch by loading its browser-only mount with `next/dynamic` and reserving its 32px navbar slot during load. Restored a standard 16px inset around the React Flow minimap while keeping its default dimensions.
+- Updated custom node rendering to honor all six shape values from the drag payload: rectangle, diamond, circle, pill, cylinder, and hexagon now have distinct SVG geometry and white outlines that strengthen during selection and movement. Updated the shape-panel feature spec to reflect the delivered visuals.
+- Fixed the active editor viewport height by anchoring its canvas directly below the fixed navbar, removing the 56px shrink caused by combining `h-dvh` with top padding. Kept the canvas full width when the AI slide-over opens, made React Flow wheel/pinch zoom settings explicit, increased live/loading dot contrast, and added a bright white node outline while selected or dragged.
+- Implemented `context/feature-specs/12-shape-panel.md` in `components/editor/canvas-flow.tsx`. The first build exposed missing icon modules in the installed Lucide package, so this canvas uses small inline SVG glyphs; the subsequent `npm.cmd run build` completed successfully, including type checking and route generation.
+- Implemented `context/feature-specs/12-shape-panel.md`: added a bottom-center draggable shape toolbar, shape and size drag payloads, drop coordinate conversion, timestamp/counter IDs, default node data, and a basic `canvasNode` renderer. Production build verification is in progress.
+- Read `context/feature-specs/10-liveblocks-setup.md` and implemented the typed Liveblocks presence/user metadata, cached node client, stable user cursor-color mapping, and authenticated `/api/liveblocks-auth` route. The route checks existing project membership, creates a private room if needed, and attaches Clerk name/avatar/color metadata to a room-write session.
+- Added `@liveblocks/node` to the project dependencies because it was missing from `node_modules` and `package.json` despite the feature spec's dependency note. The SDK is now installed and the production build passes.
 - Fixed the PostgreSQL driver deprecation/security warning by changing the local `DATABASE_URL` SSL mode from `require` to `verify-full` in `.env` and `.env.local`; this preserves the current full hostname-verification behavior while making it explicit.
 - Audited current frontend-to-backend wiring: the editor project list loads on the server through Clerk-authenticated access helpers; create, rename, and delete dialogs call project API routes; project pages verify membership before rendering. Owner-only rename/delete checks and unauthenticated `401` responses are enforced in the route handlers.
-- Confirmed the project workspace is still a placeholder. Liveblocks room/auth, canvas persistence to Blob, starter template import, Trigger.dev generation, and spec generation/download do not yet exist in this checkout; they are not end-to-end wired.
+- The initial audit found the project workspace placeholder and no Liveblocks wiring. The room authorization and collaborative canvas foundation are now implemented; canvas persistence to Blob, starter template import, Trigger.dev generation, and spec generation/download remain unwired.
 - Fixed CodeRabbit findings across project APIs and dialogs: shared trimmed 1–100 character name validation, PATCH `P2025` to `404` handling, atomic owner-scoped deletes with race-safe `403`/`404` results, one inline validation alert, and visible delete errors.
 - Made owner project queries independent from Clerk profile lookup failures and restricted collaborator access to case-insensitive matches against verified Clerk email addresses only.
 - Added Node test coverage for project name validation, P2025 classification, verified-email filtering and lookup failures, and concurrent/unauthorized project deletion outcomes.
@@ -138,3 +162,8 @@ Update this file whenever the current phase, active feature, or implementation s
 - Merged the latest `origin/main` changes into `authentication-implementation`; retained the incoming secondary-button token and Tabs orientation fixes alongside authentication review work.
 - Fixed project dialog dismissal flicker by retaining the active form or confirmation content until Base UI's `onOpenChangeComplete(false)` callback ends the exit lifecycle. TypeScript, ESLint, production build, and `git diff --check` pass; interactive browser verification remains pending because the browser control host is unavailable.
 - Addressed CodeRabbit feedback: sidebar selection now opens the selected mock project's workspace, and Unicode-only names get an ASCII slug fallback with a validation guard that keeps Create open if slug generation fails.
+- Fixed share dialog refresh failures so stale collaborator counts and lists are hidden while the error remains visible; moved POST body parsing and email validation ahead of project lookup and ownership checks. Clerk collaborator profile lookups query only collaborator emails in batches capped at the API's 100-address limit and preserve the first mapped verified address.
+- Expanded the collaborative React Flow canvas to fill the editor workspace, removed the inset frame and in-canvas title/empty-state overlays, and fixed the dot pattern stacking against React Flow's opaque dark background. Retained the room status, minimap, and pan/zoom hint.
+- Matched the Liveblocks suspense/loading fallback to the full-size dotted canvas and added a compact connecting indicator so initial room synchronization no longer appears as a blank block before React Flow mounts.
+- Increased dot size and contrast using the existing faint-text token, and moved room connection status into a compact React Flow panel at the bottom-right; mirrored that placement in the loading fallback.
+- Set active project layout to a fixed viewport height with overflow clipped and a zero-min-height canvas section; made the dot grid retain a stable screen-space size and spacing through zoom, and made the status panel content-sized and pass-through for canvas pointer events.

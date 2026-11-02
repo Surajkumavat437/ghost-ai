@@ -29,3 +29,27 @@ model ProjectCollaborator {
   @@index([email])
   @@index([projectId, createdAt])
 }
+
+enum LiveblocksRoomCleanupStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  CANCELLED
+}
+
+model LiveblocksRoomCleanup {
+  id            String                      @id @default(cuid())
+  roomId        String                      @unique @map("room_id")
+  status        LiveblocksRoomCleanupStatus @default(PENDING)
+  attempts      Int                         @default(0)
+  nextAttemptAt DateTime                    @default(now()) @map("next_attempt_at")
+  lockedAt      DateTime?                   @map("locked_at")
+  lockToken     String?                     @map("lock_token") @db.Uuid
+  completedAt   DateTime?                   @map("completed_at")
+  lastError     String?                     @map("last_error") @db.VarChar(1000)
+  createdAt     DateTime                    @default(now()) @map("created_at")
+  updatedAt     DateTime                    @updatedAt @map("updated_at")
+
+  @@index([status, nextAttemptAt, lockedAt])
+  @@map("liveblocks_room_cleanup")
+}

@@ -31,9 +31,11 @@ Build a full-viewport workspace layout with:
 - top navbar showing the project name
 - navbar actions: share button and AI sidebar toggle
 - existing `ProjectSidebar` on the left
+- project sidebar starts closed and opens only from its navbar toggle
 - current room highlighted in the sidebar
 - central canvas placeholder with dark background and centered message
 - right sidebar placeholder for future AI chat
+- AI sidebar starts closed, opens only from its navbar toggle, and closes when the active project changes
 
 The canvas area should fill the remaining space.
 

@@ -13,13 +13,14 @@ export async function enrichCollaborators(
   collaborators: ProjectCollaborator[],
 ): Promise<CollaboratorProfile[]> {
   const emails = [...new Set(collaborators.map(({ email }) => email.trim().toLowerCase()))];
+  const emailSet = new Set(emails);
   const usersByEmail = new Map<string, { displayName: string | null; avatarUrl: string | null }>();
 
   try {
     const client = await clerkClient();
     for (let index = 0; index < emails.length; index += 100) {
       const batch = emails.slice(index, index + 100);
-      const { data: users } = await client.users.getUserList({ emailAddress: batch, limit: 100 });
+      const { data: users } = await client.users.getUserList({ emailAddress: batch, limit: batch.length });
 
       for (const user of users) {
         const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim()
@@ -27,7 +28,9 @@ export async function enrichCollaborators(
           || null;
         for (const address of user.emailAddresses) {
           const email = address.emailAddress.trim().toLowerCase();
-          if (batch.includes(email)) usersByEmail.set(email, { displayName, avatarUrl: user.imageUrl || null });
+          if (emailSet.has(email) && !usersByEmail.has(email)) {
+            usersByEmail.set(email, { displayName, avatarUrl: user.imageUrl || null });
+          }
         }
       }
     }
