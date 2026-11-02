@@ -1,6 +1,8 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { getCursorColor, getLiveblocksClient } from "@/lib/liveblocks";
-import { getAccessibleProject } from "@/lib/projects";
+import { acquireLiveblocksRoomLock } from "@/lib/liveblocks-room-lock";
+import { prisma } from "@/lib/prisma";
+import { getVerifiedCollaboratorEmails } from "@/lib/project-access";
 
 interface LiveblocksAuthBody {
   room: string;
@@ -42,8 +44,7 @@ export async function POST(request: Request) {
     }
 
     stage = "project-access";
-    const project = await getAccessibleProject(userId, body.room);
-    if (!project) return jsonError("Forbidden", 403);
+    const collaboratorEmails = await getVerifiedCollaboratorEmails(userId);
 
     stage = "configuration";
     if (!process.env.LIVEBLOCKS_SECRET_KEY?.trim()) {
@@ -51,6 +52,28 @@ export async function POST(request: Request) {
     }
 
     stage = "liveblocks";
+    const liveblocks = getLiveblocksClient();
+    const project = await prisma.$transaction(async (transaction) => {
+      await acquireLiveblocksRoomLock(transaction, body.room);
+      const accessibleProject = await transaction.project.findFirst({
+        where: {
+          id: body.room,
+          OR: [
+            { ownerId: userId },
+            ...(collaboratorEmails.length
+              ? [{ collaborators: { some: { email: { in: collaboratorEmails, mode: "insensitive" as const } } } }]
+              : []),
+          ],
+        },
+        select: { id: true },
+      });
+      if (!accessibleProject) return null;
+
+      await liveblocks.getOrCreateRoom(accessibleProject.id, { defaultAccesses: [] });
+      return accessibleProject;
+    });
+    if (!project) return jsonError("Forbidden", 403);
+
     const profile = await currentUser().catch(() => null);
     const displayName = profile?.id === userId
       ? [profile.firstName, profile.lastName].filter(Boolean).join(" ") ||
@@ -59,9 +82,6 @@ export async function POST(request: Request) {
         userId
       : userId;
     const cursorColor = getCursorColor(userId);
-    const liveblocks = getLiveblocksClient();
-
-    await liveblocks.getOrCreateRoom(project.id, { defaultAccesses: [] });
 
     const session = liveblocks.prepareSession(userId, {
       userInfo: {

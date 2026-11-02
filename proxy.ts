@@ -45,6 +45,7 @@ function isApiRoute(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   return pathname === "/api/liveblocks-auth" ||
+    pathname === "/api/cron/liveblocks-room-cleanup" ||
     pathname === "/api/projects" ||
     pathname.startsWith("/api/projects/");
 }

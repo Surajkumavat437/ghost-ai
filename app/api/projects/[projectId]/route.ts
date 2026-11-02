@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { processLiveblocksRoomCleanups } from "@/lib/liveblocks-room-cleanup";
 import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
 import { deleteOwnedProject } from "@/lib/project-mutations";
 import { validateProjectName } from "@/lib/project-validation";
@@ -71,12 +72,20 @@ export async function DELETE(
   }
 
   const { projectId } = await context.params;
-  const result = await deleteOwnedProject(prisma.project, projectId, userId);
+  const result = await deleteOwnedProject(prisma, projectId, userId);
   if (result === "not-found") {
     return Response.json({ error: "Project not found" }, { status: 404 });
   }
   if (result === "forbidden") {
     return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  try {
+    await processLiveblocksRoomCleanups({ roomId: projectId, batchSize: 1 });
+  } catch (error) {
+    console.error("Immediate Liveblocks room cleanup was deferred to the retry worker", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
   }
 
   return new Response(null, { status: 204 });

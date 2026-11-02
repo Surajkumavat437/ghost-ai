@@ -4,7 +4,7 @@ import { useLiveblocksFlow } from "@liveblocks/react-flow";
 import {
   Background,
   BackgroundVariant,
-  ConnectionMode,
+  Handle,
   MarkerType,
   MiniMap,
   ReactFlowProvider,
@@ -17,18 +17,9 @@ import {
 import { useStatus } from "@liveblocks/react";
 import { useCallback, useRef } from "react";
 
+import { createCanvasNodeId, parseCanvasShapeDropPayload, SHAPE_SIZES } from "@/lib/canvas-shapes";
+import { CANVAS_CONNECTION_MODE, CANVAS_NODE_HANDLES } from "@/lib/canvas-connections";
 import { NODE_COLORS, NODE_SHAPES, type CanvasEdge, type CanvasNode, type NodeShape } from "@/types/canvas";
-
-const SHAPE_SIZES: Record<NodeShape, { width: number; height: number }> = {
-  rectangle: { width: 180, height: 100 },
-  diamond: { width: 150, height: 150 },
-  circle: { width: 120, height: 120 },
-  pill: { width: 160, height: 72 },
-  cylinder: { width: 140, height: 110 },
-  hexagon: { width: 160, height: 100 },
-};
-
-let nodeIdCounter = 0;
 
 function ShapeIcon({ shape }: { shape: NodeShape }) {
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinejoin: "round" as const };
@@ -73,10 +64,21 @@ function CanvasNodeRenderer({ data, selected, dragging }: NodeProps<CanvasNode>)
 
   return (
     <div
-      className={`relative flex h-full w-full items-center justify-center px-3 text-sm text-copy-primary transition-shadow ${selected || dragging ? "z-10 drop-shadow-[0_12px_20px_rgba(0,0,0,0.45)]" : "drop-shadow-lg"}`}
+      className={`group relative flex h-full w-full items-center justify-center px-3 text-sm text-copy-primary transition-shadow ${selected || dragging ? "z-10 drop-shadow-[0_12px_20px_rgba(0,0,0,0.45)]" : "drop-shadow-lg"}`}
     >
       <ShapeSurface shape={data.shape} color={data.color} strokeWidth={strokeWidth} />
       <span className="relative z-[1] text-center">{data.label}</span>
+      {CANVAS_NODE_HANDLES.map((handle) => (
+        <Handle
+          key={handle.id}
+          id={handle.id}
+          type={handle.type}
+          position={handle.position}
+          style={handle.style}
+          aria-label={`${handle.type === "source" ? "Start" : "End"} connection at ${handle.position.toLowerCase()}`}
+          className="!pointer-events-auto !z-20 !size-3 !border-2 !border-base !bg-copy-primary !opacity-0 transition-opacity group-hover:!opacity-100 group-focus-within:!opacity-100 group-active:!opacity-100"
+        />
+      ))}
     </div>
   );
 }
@@ -139,23 +141,24 @@ function CanvasFlowContent() {
     const rawPayload = event.dataTransfer.getData("application/ghost-canvas-shape");
     if (!rawPayload) return;
 
-    let payload: { shape: NodeShape; size: { width: number; height: number } };
+    const payload = parseCanvasShapeDropPayload(rawPayload);
+    if (!payload) return;
+
+    const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+    let id: string;
     try {
-      payload = JSON.parse(rawPayload) as typeof payload;
+      id = createCanvasNodeId(payload.shape);
     } catch {
       return;
     }
-    if (!NODE_SHAPES.includes(payload.shape) || !payload.size || typeof payload.size.width !== "number" || typeof payload.size.height !== "number") return;
-
-    const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-    const id = `${payload.shape}-${Date.now()}-${++nodeIdCounter}`;
+    const size = SHAPE_SIZES[payload.shape];
     onNodesChange([{
       type: "add",
       item: {
         id,
         type: "canvasNode",
         position,
-        style: { width: payload.size.width, height: payload.size.height },
+        style: { width: size.width, height: size.height },
         data: { label: "", color: NODE_COLORS[0].color, shape: payload.shape },
       },
     }]);
@@ -177,7 +180,7 @@ function CanvasFlowContent() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        connectionMode={ConnectionMode.Loose}
+        connectionMode={CANVAS_CONNECTION_MODE}
         defaultEdgeOptions={{
           type: "smoothstep",
           markerEnd: { type: MarkerType.ArrowClosed, color: "var(--text-muted)" },

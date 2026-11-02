@@ -12,6 +12,11 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Completed
 
+- Resolved the four minor canvas/API review findings: collaborator ownership is checked before parsing, invalid/null shape payloads are rejected, dropped nodes use canonical dimensions, and IDs use secure-context UUIDs or cryptographically random bytes. Added focused tests for authorization order, payload validation, dimensions, and ID uniqueness.
+- Added four-sided source and target React Flow handles to canvas nodes, with distinct IDs and tests for handle placement and loose connection mode.
+- Added durable Liveblocks room cleanup: project deletion atomically records an outbox item, post-commit cleanup is idempotent, failures retry with backoff, stale claims recover, and a secret-protected daily Vercel Cron drains pending work. Provisioning and cleanup share a room lock to prevent deleting rooms for active projects.
+- Added tests for transactional outbox behavior and cleanup failure/active-project edge cases. Prisma format, generate, validate, TypeScript, ESLint, and the test suite pass.
+
 - Implemented the shape panel from `context/feature-specs/12-shape-panel.md`: the canvas now has draggable buttons for all six shapes, carries shape and default dimensions in each drag payload, converts drop coordinates through React Flow, creates empty default-colored `canvasNode` entries with timestamp/counter IDs, and renders each shape with matching SVG geometry and a white outline. `npm run build` passes on 2026-11-02.
 - Implemented Liveblocks types for cursor presence, thinking state, and user metadata; added a cached Node client and deterministic cursor colors.
 - Added authenticated `POST /api/liveblocks-auth`, with project membership checks, private room creation, and room-scoped write tokens carrying Clerk user name, avatar, and cursor color metadata. `npm run build` passes with the new route in the production route table.
