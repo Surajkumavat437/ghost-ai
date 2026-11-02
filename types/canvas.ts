@@ -24,11 +24,16 @@ export type NodeShape = (typeof NODE_SHAPES)[number];
 export interface CanvasNodeData extends Record<string, unknown> {
   label: string;
   color: (typeof NODE_COLORS)[number]["color"];
+  textColor?: (typeof NODE_COLORS)[number]["textColor"];
   shape: NodeShape;
 }
 
 export type CanvasNode = Node<CanvasNodeData, "canvasNode">;
-export type CanvasEdge = Edge<Record<string, unknown>, "canvasEdge">;
+export interface CanvasEdgeData extends Record<string, unknown> {
+  label?: string;
+}
+
+export type CanvasEdge = Edge<CanvasEdgeData, "canvasEdge">;
 
 export interface CanvasPresence {
   cursor: { x: number; y: number } | null;

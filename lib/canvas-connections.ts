@@ -6,26 +6,26 @@ const SIDE_HANDLES = [
   {
     side: "top",
     position: Position.Top,
-    sourceStyle: { left: "calc(50% + 7px)" },
-    targetStyle: { left: "calc(50% - 7px)" },
+    sourceStyle: { left: "50%" },
+    targetStyle: { left: "50%" },
   },
   {
     side: "right",
     position: Position.Right,
-    sourceStyle: { top: "calc(50% + 7px)" },
-    targetStyle: { top: "calc(50% - 7px)" },
+    sourceStyle: { top: "50%" },
+    targetStyle: { top: "50%" },
   },
   {
     side: "bottom",
     position: Position.Bottom,
-    sourceStyle: { left: "calc(50% - 7px)" },
-    targetStyle: { left: "calc(50% + 7px)" },
+    sourceStyle: { left: "50%" },
+    targetStyle: { left: "50%" },
   },
   {
     side: "left",
     position: Position.Left,
-    sourceStyle: { top: "calc(50% - 7px)" },
-    targetStyle: { top: "calc(50% + 7px)" },
+    sourceStyle: { top: "50%" },
+    targetStyle: { top: "50%" },
   },
 ] as const;
 

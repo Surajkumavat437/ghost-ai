@@ -6,20 +6,27 @@ import {
   BackgroundVariant,
   Handle,
   MarkerType,
-  MiniMap,
+  NodeToolbar,
+  NodeResizer,
+  Position,
   ReactFlowProvider,
   Panel,
   ReactFlow,
   useReactFlow,
   useViewport,
   type NodeProps,
+  type EdgeTypes,
 } from "@xyflow/react";
-import { useStatus } from "@liveblocks/react";
-import { useCallback, useRef } from "react";
+import { useCanRedo, useCanUndo, useMutation, useRedo, useStatus, useUndo } from "@liveblocks/react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { createCanvasNodeId, parseCanvasShapeDropPayload, SHAPE_SIZES } from "@/lib/canvas-shapes";
 import { CANVAS_CONNECTION_MODE, CANVAS_NODE_HANDLES } from "@/lib/canvas-connections";
 import { NODE_COLORS, NODE_SHAPES, type CanvasEdge, type CanvasNode, type NodeShape } from "@/types/canvas";
+import { CanvasEdgeRenderer, UpdateCanvasEdgeLabelContext } from "@/components/editor/canvas-edge";
+import { CanvasControlBar } from "@/components/editor/canvas-control-bar";
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
+import { useStarterTemplates, type QueuedCanvasTemplate } from "@/components/editor/starter-templates-context";
 
 function ShapeIcon({ shape }: { shape: NodeShape }) {
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinejoin: "round" as const };
@@ -35,10 +42,20 @@ function ShapeIcon({ shape }: { shape: NodeShape }) {
   );
 }
 
-function ShapeSurface({ shape, color, strokeWidth }: { shape: NodeShape; color: string; strokeWidth: number }) {
+function ShapeSurface({ shape, color, textColor, strokeWidth }: { shape: NodeShape; color: string; textColor: string; strokeWidth: number }) {
+  if (shape === "rectangle" || shape === "pill" || shape === "circle") {
+    return (
+      <div
+        aria-hidden="true"
+        className={`pointer-events-none absolute inset-0 border ${shape === "pill" ? "rounded-full" : shape === "circle" ? "rounded-full" : "rounded-md"}`}
+        style={{ backgroundColor: color, borderColor: textColor, borderWidth: strokeWidth }}
+      />
+    );
+  }
+
   const shared = {
     fill: color,
-    stroke: "var(--text-primary)",
+    stroke: textColor,
     strokeWidth,
     strokeLinejoin: "round" as const,
     vectorEffect: "non-scaling-stroke" as const,
@@ -46,28 +63,87 @@ function ShapeSurface({ shape, color, strokeWidth }: { shape: NodeShape; color: 
 
   return (
     <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
-      {shape === "rectangle" && <rect x="1" y="1" width="98" height="98" rx="5" {...shared} />}
       {shape === "diamond" && <polygon points="50,2 98,50 50,98 2,50" {...shared} />}
-      {shape === "circle" && <ellipse cx="50" cy="50" rx="48" ry="48" {...shared} />}
-      {shape === "pill" && <rect x="1" y="8" width="98" height="84" rx="42" {...shared} />}
       {shape === "cylinder" && <>
         <path d="M2 16 C2 5 98 5 98 16 V84 C98 95 2 95 2 84 Z" {...shared} />
-        <path d="M2 16 C2 27 98 27 98 16" fill="none" stroke="var(--text-primary)" strokeWidth={strokeWidth} vectorEffect="non-scaling-stroke" />
+        <path d="M2 16 C2 27 98 27 98 16" fill="none" stroke={textColor} strokeWidth={strokeWidth} vectorEffect="non-scaling-stroke" />
       </>}
       {shape === "hexagon" && <polygon points="24,2 76,2 98,50 76,98 24,98 2,50" {...shared} />}
     </svg>
   );
 }
 
-function CanvasNodeRenderer({ data, selected, dragging }: NodeProps<CanvasNode>) {
+function CanvasNodeRenderer({ id, data, selected, dragging }: NodeProps<CanvasNode>) {
+  const [isEditing, setIsEditing] = useState(false);
+  const labelEditorRef = useRef<HTMLTextAreaElement>(null);
+  const updateLabel = useContext(UpdateCanvasNodeLabelContext);
+  const updateColor = useContext(UpdateCanvasNodeColorContext);
+  const textColor = data.textColor ?? NODE_COLORS.find((color) => color.color === data.color)?.textColor ?? NODE_COLORS[0].textColor;
   const strokeWidth = selected || dragging ? 2.5 : 1.75;
+
+  useLayoutEffect(() => {
+    const editor = labelEditorRef.current;
+    if (!editor) return;
+
+    editor.style.height = "auto";
+    const availableHeight = editor.parentElement?.clientHeight ?? editor.scrollHeight;
+    editor.style.height = `${Math.min(editor.scrollHeight, availableHeight)}px`;
+  }, [data.label, isEditing]);
 
   return (
     <div
-      className={`group relative flex h-full w-full items-center justify-center px-3 text-sm text-copy-primary transition-shadow ${selected || dragging ? "z-10 drop-shadow-[0_12px_20px_rgba(0,0,0,0.45)]" : "drop-shadow-lg"}`}
+      className={`group relative flex h-full w-full items-center justify-center px-3 text-lg text-copy-primary transition-shadow ${selected || dragging ? "z-10 drop-shadow-[0_12px_20px_rgba(0,0,0,0.45)]" : "drop-shadow-lg"}`}
     >
-      <ShapeSurface shape={data.shape} color={data.color} strokeWidth={strokeWidth} />
-      <span className="relative z-[1] text-center">{data.label}</span>
+      <NodeResizer
+        isVisible={selected}
+        minWidth={80}
+        minHeight={56}
+        keepAspectRatio={data.shape === "circle"}
+        color="var(--text-muted)"
+        handleClassName="!z-30 !size-4 !rounded-sm !border-2 !border-base !bg-copy-secondary shadow-md"
+        lineClassName="!border-copy-muted/50"
+      />
+      <NodeToolbar isVisible={selected} position={Position.Top} offset={14}>
+        <div role="toolbar" aria-label="Node colors" className="nodrag nopan flex items-center gap-1.5 rounded-full border border-surface-border bg-surface/95 px-2 py-1.5 shadow-lg shadow-base/50 backdrop-blur" onPointerDown={(event) => event.stopPropagation()} onMouseDown={(event) => event.stopPropagation()}>
+          {NODE_COLORS.map((color) => {
+            const active = data.color === color.color && textColor === color.textColor;
+            return <button key={color.color} type="button" aria-label={`Set node color ${color.textColor}`} aria-pressed={active} title={`Set node color ${color.textColor}`} onClick={() => updateColor?.(id, color.color, color.textColor)} className={`nodrag nopan size-5 rounded-full border transition-transform hover:scale-110 hover:shadow-[0_0_7px_1px_var(--swatch-glow)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${active ? "ring-2 ring-copy-primary ring-offset-2 ring-offset-surface" : "border-copy-muted/50"}`} style={{ backgroundColor: color.color, borderColor: color.textColor, "--swatch-glow": color.textColor } as React.CSSProperties} />;
+          })}
+        </div>
+      </NodeToolbar>
+      <ShapeSurface shape={data.shape} color={data.color} textColor={textColor} strokeWidth={strokeWidth} />
+      <span
+        onDoubleClick={(event) => {
+          event.stopPropagation();
+          setIsEditing(true);
+        }}
+        style={{ color: textColor }}
+        className={`nodrag nopan relative z-[1] w-full cursor-text select-none text-center text-lg ${isEditing ? "invisible" : ""}`}
+      >
+        {data.label || "Double-click to add label"}
+      </span>
+      {isEditing && (
+        <textarea
+          ref={labelEditorRef}
+          aria-label="Edit node label"
+          autoFocus
+          rows={1}
+          value={data.label}
+          onChange={(event) => updateLabel?.(id, event.target.value)}
+          onBlur={() => setIsEditing(false)}
+          onKeyDown={(event) => {
+            event.stopPropagation();
+            if (event.key === "Escape") {
+              event.preventDefault();
+              setIsEditing(false);
+            }
+          }}
+          onKeyUp={(event) => event.stopPropagation()}
+          onDoubleClick={(event) => event.stopPropagation()}
+          style={{ color: textColor }}
+          className="nodrag nopan nowheel absolute left-2 top-1/2 z-[2] m-0 box-border max-h-[calc(100%-1rem)] min-h-6 w-[calc(100%-1rem)] -translate-y-1/2 cursor-text resize-none overflow-auto border-0 bg-transparent p-0 text-center text-lg leading-6 text-copy-primary outline-none placeholder:text-copy-muted"
+        />
+      )}
       {CANVAS_NODE_HANDLES.map((handle) => (
         <Handle
           key={handle.id}
@@ -76,7 +152,7 @@ function CanvasNodeRenderer({ data, selected, dragging }: NodeProps<CanvasNode>)
           position={handle.position}
           style={handle.style}
           aria-label={`${handle.type === "source" ? "Start" : "End"} connection at ${handle.position.toLowerCase()}`}
-          className="!pointer-events-auto !z-20 !size-3 !border-2 !border-base !bg-copy-primary !opacity-0 transition-opacity group-hover:!opacity-100 group-focus-within:!opacity-100 group-active:!opacity-100"
+          className="!pointer-events-auto !z-20 !size-3 !cursor-crosshair !border-2 !border-base !bg-copy-primary !opacity-0 transition-opacity group-hover:!opacity-100 group-focus-within:!opacity-100 group-active:!opacity-100"
         />
       ))}
     </div>
@@ -84,8 +160,17 @@ function CanvasNodeRenderer({ data, selected, dragging }: NodeProps<CanvasNode>)
 }
 
 const nodeTypes = { canvasNode: CanvasNodeRenderer };
+const edgeTypes: EdgeTypes = {
+  canvasEdge: CanvasEdgeRenderer,
+  default: CanvasEdgeRenderer,
+  smoothstep: CanvasEdgeRenderer,
+  step: CanvasEdgeRenderer,
+  straight: CanvasEdgeRenderer,
+};
+const UpdateCanvasNodeLabelContext = createContext<((id: string, label: string) => void) | null>(null);
+const UpdateCanvasNodeColorContext = createContext<((id: string, color: CanvasNode["data"]["color"], textColor: NonNullable<CanvasNode["data"]["textColor"]>) => void) | null>(null);
 
-function ShapeToolbar() {
+function ShapeToolbar({ onDragStart, onDragEnd }: { onDragStart: (shape: NodeShape) => void; onDragEnd: () => void }) {
   return (
     <div className="absolute bottom-5 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1 rounded-full border border-surface-border bg-surface/95 p-1.5 shadow-xl shadow-base/50 backdrop-blur">
       {NODE_SHAPES.map((shape) => {
@@ -99,7 +184,9 @@ function ShapeToolbar() {
             onDragStart={(event) => {
               event.dataTransfer.setData("application/ghost-canvas-shape", JSON.stringify({ shape, size: SHAPE_SIZES[shape] }));
               event.dataTransfer.effectAllowed = "copy";
+              onDragStart(shape);
             }}
+            onDragEnd={onDragEnd}
             className="flex size-9 cursor-grab items-center justify-center rounded-full text-copy-secondary transition-colors hover:bg-subtle hover:text-brand active:cursor-grabbing"
           >
             <ShapeIcon shape={shape} />
@@ -127,17 +214,148 @@ function ZoomStableBackground() {
 }
 
 function CanvasFlowContent() {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect } =
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, onDelete } =
     useLiveblocksFlow<CanvasNode, CanvasEdge>({
       nodes: { initial: [] },
       edges: { initial: [] },
       suspense: true,
     });
   const connectionStatus = useStatus();
-  const { screenToFlowPosition } = useReactFlow<CanvasNode, CanvasEdge>();
+  const flow = useReactFlow<CanvasNode, CanvasEdge>();
+  const { screenToFlowPosition } = flow;
+  const { zoom } = useViewport();
+  const canUndo = useCanUndo();
+  const canRedo = useCanRedo();
+  const undo = useUndo();
+  const redo = useRedo();
+  const { pendingTemplates, acknowledgeTemplate } = useStarterTemplates();
+  const applyingTemplateRef = useRef<QueuedCanvasTemplate & { nodes: CanvasNode[]; edges: CanvasEdge[]; attempted: boolean } | null>(null);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [retryVersion, setRetryVersion] = useState(0);
+  const scheduleTemplateRetry = useCallback(() => {
+    if (retryTimerRef.current) return;
+    retryTimerRef.current = setTimeout(() => {
+      retryTimerRef.current = null;
+      if (applyingTemplateRef.current) applyingTemplateRef.current.attempted = false;
+      setRetryVersion((version) => version + 1);
+    }, 1000);
+  }, []);
+  useEffect(() => () => {
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+  }, []);
+  useKeyboardShortcuts({ flow, undo, redo });
+  useEffect(() => {
+    let applying = applyingTemplateRef.current;
+    if (applying) {
+      const nodesApplied = applying.nodes.every((node) => nodes.some((current) => current.id === node.id));
+      const edgesApplied = applying.edges.every((edge) => edges.some((current) => current.id === edge.id));
+      if (nodesApplied && edgesApplied) {
+        applyingTemplateRef.current = null;
+        if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+        acknowledgeTemplate(applying.id);
+        return;
+      }
+    } else {
+      if (connectionStatus !== "connected" || pendingTemplates.length === 0) return;
+      const request = pendingTemplates[0];
+      const getNodeDimensions = (node: CanvasNode) => ({
+        width: Number(node.measured?.width ?? node.width ?? node.style?.width) || 180,
+        height: Number(node.measured?.height ?? node.height ?? node.style?.height) || 90,
+      });
+      const templateBounds = request.template.nodes.reduce((bounds, node) => {
+        const size = getNodeDimensions(node);
+        return {
+          minX: Math.min(bounds.minX, node.position.x),
+          minY: Math.min(bounds.minY, node.position.y),
+          maxX: Math.max(bounds.maxX, node.position.x + size.width),
+          maxY: Math.max(bounds.maxY, node.position.y + size.height),
+        };
+      }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+      const existingBounds = nodes.reduce((bounds, node) => {
+        const size = getNodeDimensions(node);
+        return {
+          minX: Math.min(bounds.minX, node.position.x),
+          minY: Math.min(bounds.minY, node.position.y),
+          maxX: Math.max(bounds.maxX, node.position.x + size.width),
+          maxY: Math.max(bounds.maxY, node.position.y + size.height),
+        };
+      }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+      const hasExistingNodes = nodes.length > 0;
+      const offsetX = hasExistingNodes ? existingBounds.maxX + 180 - templateBounds.minX : -templateBounds.minX;
+      const offsetY = hasExistingNodes ? existingBounds.minY - templateBounds.minY : -templateBounds.minY;
+      const nodeIds = new Map<string, string>();
+      let nextNodes: CanvasNode[];
+      try {
+        nextNodes = request.template.nodes.map((node) => {
+          const id = createCanvasNodeId(node.data.shape);
+          nodeIds.set(node.id, id);
+          return {
+            ...node,
+            id,
+            position: { x: node.position.x + offsetX, y: node.position.y + offsetY },
+          };
+        });
+      } catch {
+        scheduleTemplateRetry();
+        return;
+      }
+      const nextEdges = request.template.edges.map((edge, index) => {
+        const source = nodeIds.get(edge.source);
+        const target = nodeIds.get(edge.target);
+        if (!source || !target) return null;
+        return { ...edge, id: `edge-${source}-${target}-${index}`, source, target };
+      }).filter((edge): edge is CanvasEdge => edge !== null);
+      applying = { ...request, nodes: nextNodes, edges: nextEdges, attempted: false };
+      applyingTemplateRef.current = applying;
+    }
+
+    if (connectionStatus !== "connected" || !applying || applying.attempted) return;
+    try {
+      const newNodes = applying.nodes.filter((node) => !nodes.some((current) => current.id === node.id));
+      const newEdges = applying.edges.filter((edge) => !edges.some((current) => current.id === edge.id));
+      if (newNodes.length > 0) onNodesChange(newNodes.map((item) => ({ type: "add" as const, item })));
+      if (newEdges.length > 0) onEdgesChange(newEdges.map((item) => ({ type: "add" as const, item })));
+      requestAnimationFrame(() => {
+        void flow.fitView({ nodes: [...nodes, ...applying.nodes], padding: 0.2, duration: 350 });
+      });
+      applying.attempted = true;
+      scheduleTemplateRetry();
+    } catch {
+      scheduleTemplateRetry();
+    }
+  }, [pendingTemplates, acknowledgeTemplate, connectionStatus, nodes, edges, onNodesChange, onEdgesChange, flow, scheduleTemplateRetry, retryVersion]);
+  const updateNodeLabel = useMutation(({ storage }, id: string, label: string) => {
+    const data = storage.get("flow")?.get("nodes").get(id)?.get("data");
+    data?.set("label", label);
+  }, []);
+  const updateEdgeLabel = useMutation(({ storage }, id: string, label: string) => {
+    const data = storage.get("flow")?.get("edges").get(id)?.get("data");
+    data?.set("label", label);
+  }, []);
+  const updateNodeColor = useMutation((
+    { storage },
+    id: string,
+    color: CanvasNode["data"]["color"],
+    textColor: NonNullable<CanvasNode["data"]["textColor"]>,
+  ) => {
+    const data = storage.get("flow")?.get("nodes").get(id)?.get("data");
+    if (!data) return;
+    data.set("color", color);
+    data.set("textColor", textColor);
+  }, []);
   const dropTargetRef = useRef<HTMLDivElement>(null);
+  const [dragPreview, setDragPreview] = useState<{ shape: NodeShape; position: { x: number; y: number } | null } | null>(null);
+  const handleDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const bounds = event.currentTarget.getBoundingClientRect();
+    setDragPreview((current) => current ? { ...current, position: { x: event.clientX - bounds.left, y: event.clientY - bounds.top } } : current);
+  }, []);
+  const handleShapeDragStart = useCallback((shape: NodeShape) => setDragPreview({ shape, position: null }), []);
+  const clearDragPreview = useCallback(() => setDragPreview(null), []);
   const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
+    setDragPreview(null);
     const rawPayload = event.dataTransfer.getData("application/ghost-canvas-shape");
     if (!rawPayload) return;
 
@@ -159,7 +377,7 @@ function CanvasFlowContent() {
         type: "canvasNode",
         position,
         style: { width: size.width, height: size.height },
-        data: { label: "", color: NODE_COLORS[0].color, shape: payload.shape },
+        data: { label: "", color: NODE_COLORS[0].color, textColor: NODE_COLORS[0].textColor, shape: payload.shape },
       },
     }]);
   }, [onNodesChange, screenToFlowPosition]);
@@ -172,19 +390,24 @@ function CanvasFlowContent() {
   }[connectionStatus];
 
   return (
-    <div ref={dropTargetRef} className="relative h-full w-full overflow-hidden bg-base" onDragOver={(event) => event.preventDefault()} onDrop={handleDrop}>
+    <div ref={dropTargetRef} className="relative h-full w-full overflow-hidden bg-base" onDragOver={handleDragOver} onDrop={handleDrop}>
+      <UpdateCanvasNodeLabelContext.Provider value={updateNodeLabel}>
+      <UpdateCanvasNodeColorContext.Provider value={updateNodeColor}>
+      <UpdateCanvasEdgeLabelContext.Provider value={updateEdgeLabel}>
       <ReactFlow
         nodes={nodes}
         nodeTypes={nodeTypes}
         edges={edges}
+        edgeTypes={edgeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onDelete={onDelete}
         connectionMode={CANVAS_CONNECTION_MODE}
         defaultEdgeOptions={{
-          type: "smoothstep",
-          markerEnd: { type: MarkerType.ArrowClosed, color: "var(--text-muted)" },
-          style: { stroke: "var(--text-muted)", strokeWidth: 1.5 },
+          type: "canvasEdge",
+          markerEnd: { type: MarkerType.ArrowClosed, color: "var(--text-primary)" },
+          style: { stroke: "var(--text-primary)", strokeWidth: 1.75, strokeLinecap: "round", strokeLinejoin: "round" },
         }}
         fitView
         colorMode="dark"
@@ -194,18 +417,8 @@ function CanvasFlowContent() {
         zoomOnPinch
         panOnScroll={false}
         preventScrolling
-        className="!bg-transparent"
+        className="ghost-canvas-flow !bg-transparent"
       >
-        <MiniMap<CanvasNode>
-          nodeColor={(node) => node.data.color}
-          ariaLabel="Canvas minimap"
-          position="top-right"
-          bgColor="var(--bg-surface)"
-          className="!m-4 !overflow-hidden !rounded-xl !border !border-surface-border !shadow-lg !shadow-base/40"
-          maskColor="color-mix(in srgb, var(--bg-base) 72%, transparent)"
-          pannable
-          zoomable
-        />
         <ZoomStableBackground />
         <Panel position="bottom-right" className="!m-3 !w-fit !max-w-[calc(100%-1.5rem)] !pointer-events-none sm:!m-4">
           <span className="inline-flex w-fit max-w-full items-center gap-1.5 whitespace-nowrap rounded-full border border-surface-border bg-surface/95 px-2.5 py-1 text-[10px] font-medium text-copy-secondary shadow-lg shadow-base/40 backdrop-blur">
@@ -214,10 +427,27 @@ function CanvasFlowContent() {
           </span>
         </Panel>
       </ReactFlow>
+      </UpdateCanvasEdgeLabelContext.Provider>
+      </UpdateCanvasNodeColorContext.Provider>
+      </UpdateCanvasNodeLabelContext.Provider>
 
-      <ShapeToolbar />
+      <ShapeToolbar onDragStart={handleShapeDragStart} onDragEnd={clearDragPreview} />
+      <CanvasControlBar flow={flow} canUndo={canUndo} canRedo={canRedo} undo={undo} redo={redo} />
 
-      <div className="pointer-events-none absolute bottom-4 left-4 z-10 hidden items-center gap-2 rounded-lg border border-surface-border/80 bg-surface/90 px-3 py-2 text-[10px] text-copy-faint shadow-lg shadow-base/30 backdrop-blur sm:flex">
+      {dragPreview?.position && (() => {
+        const size = SHAPE_SIZES[dragPreview.shape];
+        return (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2 opacity-60"
+            style={{ left: dragPreview.position.x, top: dragPreview.position.y, width: size.width * zoom, height: size.height * zoom }}
+          >
+            <ShapeSurface shape={dragPreview.shape} color={NODE_COLORS[0].color} textColor={NODE_COLORS[0].textColor} strokeWidth={2} />
+          </div>
+        );
+      })()}
+
+      <div className="pointer-events-none absolute bottom-[4.5rem] left-4 z-10 hidden items-center gap-2 rounded-lg border border-surface-border/80 bg-surface/90 px-3 py-2 text-[10px] text-copy-faint shadow-lg shadow-base/30 backdrop-blur sm:flex">
         <svg aria-hidden="true" viewBox="0 0 16 16" className="size-3.5 text-copy-muted" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M2 8h2l1.4-4 2.2 8 1.8-5L11 9h3" /></svg>
         <span>Drag to pan</span>
         <span aria-hidden="true" className="text-copy-faint">·</span>

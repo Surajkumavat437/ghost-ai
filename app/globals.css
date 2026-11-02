@@ -114,6 +114,29 @@
   background-size: 20px 20px;
 }
 
+.ghost-canvas-flow .react-flow__pane.draggable {
+  cursor: grab;
+}
+
+.ghost-canvas-flow .react-flow__pane.dragging {
+  cursor: grabbing;
+}
+
+.ghost-canvas-flow .react-flow__node.draggable,
+.ghost-canvas-flow .react-flow__node.draggable.dragging {
+  cursor: move;
+}
+
+.ghost-canvas-flow .react-flow__resize-control.top.left,
+.ghost-canvas-flow .react-flow__resize-control.bottom.right {
+  cursor: nwse-resize;
+}
+
+.ghost-canvas-flow .react-flow__resize-control.top.right,
+.ghost-canvas-flow .react-flow__resize-control.bottom.left {
+  cursor: nesw-resize;
+}
+
 .editor-home-glow {
   background:
     radial-gradient(ellipse at 76% 32%, color-mix(in srgb, var(--accent-ai) 12%, transparent), transparent 48%),
