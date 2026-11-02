@@ -89,13 +89,15 @@ Small white circular handles, hidden by default, revealed on node hover. Appear 
 
 React Flow `<Background>` component. Canvas sits on the base background color.
 
+Canvas workspaces use the full available editor viewport for React Flow, without an inset card frame or in-canvas title header. Keep the room connection status as a compact, content-sized, non-interactive badge in the bottom-right corner, alongside the token-styled interactive minimap and subtle pan/zoom guidance. Keep the dot pattern legible with theme-token contrast and a stable screen-space size and spacing across zoom levels.
+
 ## Component Library
 
 shadcn/ui on top of Tailwind. No custom design system. Components live in `components/ui/`. Use the `shadcn` CLI to add new components rather than writing them from scratch.
 
 ## Layout Patterns
 
-- Editor workspace: full-viewport layout — floating sidebar overlay on the left, center canvas, slide-over AI sidebar on the right.
+- Editor workspace: full-viewport layout — floating sidebar overlay on the left, center canvas, slide-over AI sidebar on the right. Both sidebars start closed, open only from their navbar toggles, and close when switching projects.
 - Sidebars: floating overlay with dark semi-transparent background and subtle border.
 - Modals and dialogs: centered overlay, `rounded-3xl`, dark background with backdrop blur.
 - Navbar: top bar with dark background and bottom border.

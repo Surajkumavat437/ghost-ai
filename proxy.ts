@@ -41,14 +41,16 @@ function isPublicRoute(request: NextRequest) {
   });
 }
 
-function isProjectApiRoute(request: NextRequest) {
+function isApiRoute(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
-  return pathname === "/api/projects" || pathname.startsWith("/api/projects/");
+  return pathname === "/api/liveblocks-auth" ||
+    pathname === "/api/projects" ||
+    pathname.startsWith("/api/projects/");
 }
 
 export default clerkMiddleware(async (auth, request) => {
-  if (!isPublicRoute(request) && !isProjectApiRoute(request)) {
+  if (!isPublicRoute(request) && !isApiRoute(request)) {
     await auth.protect();
   }
 });

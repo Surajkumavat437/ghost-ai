@@ -20,8 +20,8 @@ interface EditorLayoutProps {
 
 export function EditorLayout({ children, projects, activeProject = null }: EditorLayoutProps) {
   const router = useRouter()
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
-  const [isAiSidebarOpen, setIsAiSidebarOpen] = useState(true)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isAiSidebarOpen, setIsAiSidebarOpen] = useState(false)
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false)
   const projectActions = useProjectActions(projects, activeProject?.id ?? null)
 
@@ -44,12 +44,14 @@ export function EditorLayout({ children, projects, activeProject = null }: Edito
         onCreate={projectActions.openCreate}
         onSelect={(project) => {
           setIsSidebarOpen(false)
+          setIsAiSidebarOpen(false)
+          setIsShareDialogOpen(false)
           router.push(`/editor/${encodeURIComponent(project.id)}`)
         }}
         onRename={projectActions.openRename}
         onDelete={projectActions.openDelete}
       />
-      <main className={`min-h-dvh pt-14 transition-[padding] duration-300 motion-reduce:transition-none ${activeProject && isAiSidebarOpen ? "lg:pr-[23rem]" : ""}`}>
+      <main className={activeProject ? "fixed inset-x-0 bottom-0 top-14 overflow-hidden" : "min-h-dvh pt-14"}>
         {children ?? (
           activeProject ? (
             <section aria-label={`${activeProject.name} workspace`} className="flex min-h-[calc(100dvh-3.5rem)] flex-col px-6 py-8">

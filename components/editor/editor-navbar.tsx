@@ -1,10 +1,15 @@
 "use client"
 
 import Link from "next/link"
+import dynamic from "next/dynamic"
 import { Bot, ChevronRight, PanelLeftClose, PanelLeftOpen, Share2, Workflow } from "lucide-react"
-import { UserButton } from "@clerk/nextjs"
 
 import { Button } from "@/components/ui/button"
+
+const UserButton = dynamic(
+  () => import("@clerk/nextjs").then((clerk) => clerk.UserButton),
+  { ssr: false, loading: () => <span aria-hidden="true" className="size-8 shrink-0" /> },
+)
 
 interface EditorNavbarProps {
   isSidebarOpen: boolean
