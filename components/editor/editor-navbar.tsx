@@ -5,6 +5,7 @@ import dynamic from "next/dynamic"
 import { Bot, ChevronRight, Layers3, PanelLeftClose, PanelLeftOpen, Share2, Workflow } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import type { CanvasSaveStatus } from "@/hooks/use-canvas-save"
 
 const UserButton = dynamic(
   () => import("@clerk/nextjs").then((clerk) => clerk.UserButton),
@@ -20,10 +21,25 @@ interface EditorNavbarProps {
   isAiSidebarOpen?: boolean
   onShareClick?: () => void
   canManageSharing?: boolean
+  onSave?: (traceId?: string) => void | Promise<boolean>
+  saveStatus?: CanvasSaveStatus
+  saveError?: string | null
 }
 
-export function EditorNavbar({ isSidebarOpen, onSidebarToggle, projectName, onStarterTemplatesClick, onAiSidebarToggle, isAiSidebarOpen = false, onShareClick, canManageSharing = false }: EditorNavbarProps) {
+export function EditorNavbar({ isSidebarOpen, onSidebarToggle, projectName, onStarterTemplatesClick, onAiSidebarToggle, isAiSidebarOpen = false, onShareClick, canManageSharing = false, onSave, saveStatus = "idle", saveError }: EditorNavbarProps) {
   const SidebarIcon = isSidebarOpen ? PanelLeftClose : PanelLeftOpen
+  const handleSave = () => {
+    if (!onSave) return
+    const traceId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const startedAt = performance.now()
+    console.info("[canvas-save] save button clicked", { traceId })
+    console.info("[canvas-save] save handler started", { traceId })
+    void Promise.resolve(onSave(traceId)).then((saved) => {
+      console.info("[canvas-save] save handler settled", { traceId, saved, durationMs: Math.round(performance.now() - startedAt) })
+    }).catch((error: unknown) => {
+      console.error("[canvas-save] save handler rejected", { traceId, name: error instanceof Error ? error.name : "UnknownError", durationMs: Math.round(performance.now() - startedAt) })
+    })
+  }
 
   return (
     <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center border-b border-surface-border/80 bg-surface/90 px-2.5 backdrop-blur-xl sm:px-4">
@@ -71,6 +87,9 @@ export function EditorNavbar({ isSidebarOpen, onSidebarToggle, projectName, onSt
             variant="ghost"
           >
             <Bot className="h-[18px] w-[18px]" />
+          </Button>
+          <Button type="button" variant="default" className="border-brand/30 bg-brand px-3 text-copy-on-brand shadow-sm shadow-brand/20 hover:bg-brand/90" onClick={handleSave} disabled={!onSave || saveStatus === "saving"} title={saveError ?? undefined} aria-label={saveError && saveStatus === "error" ? `Retry save: ${saveError}` : "Save canvas"}>
+            {saveStatus === "saving" ? "Saving..." : saveStatus === "error" ? "Retry" : saveStatus === "saved" ? "Saved" : "Save"}
           </Button>
         </>}
         <span aria-hidden="true" className="mx-1 h-5 w-px bg-surface-border" />

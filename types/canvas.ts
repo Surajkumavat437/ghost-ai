@@ -37,5 +37,5 @@ export type CanvasEdge = Edge<CanvasEdgeData, "canvasEdge">;
 
 export interface CanvasPresence {
   cursor: { x: number; y: number } | null;
-  isThinking: boolean;
+  thinking: boolean;
 }

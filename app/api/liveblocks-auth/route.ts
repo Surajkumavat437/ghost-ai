@@ -1,4 +1,4 @@
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { getCursorColor, getLiveblocksClient } from "@/lib/liveblocks";
 import { acquireLiveblocksRoomLock } from "@/lib/liveblocks-room-lock";
 import { prisma } from "@/lib/prisma";
@@ -44,7 +44,13 @@ export async function POST(request: Request) {
     }
 
     stage = "project-access";
-    const collaboratorEmails = await getVerifiedCollaboratorEmails(userId);
+    // Owners do not need a Clerk profile lookup to authorize their own room.
+    // This keeps the common path short enough for Liveblocks' 10 second auth deadline.
+    const ownedProject = await prisma.project.findFirst({
+      where: { id: body.room, ownerId: userId },
+      select: { id: true },
+    });
+    const collaboratorEmails = ownedProject ? [] : await getVerifiedCollaboratorEmails(userId);
 
     stage = "configuration";
     if (!process.env.LIVEBLOCKS_SECRET_KEY?.trim()) {
@@ -74,19 +80,11 @@ export async function POST(request: Request) {
     });
     if (!project) return jsonError("Forbidden", 403);
 
-    const profile = await currentUser().catch(() => null);
-    const displayName = profile?.id === userId
-      ? [profile.firstName, profile.lastName].filter(Boolean).join(" ") ||
-        profile.username ||
-        profile.primaryEmailAddress?.emailAddress ||
-        userId
-      : userId;
     const cursorColor = getCursorColor(userId);
 
     const session = liveblocks.prepareSession(userId, {
       userInfo: {
-        name: displayName,
-        ...(profile?.id === userId ? { avatar: profile.imageUrl } : {}),
+        name: userId,
         cursorColor,
       },
     });

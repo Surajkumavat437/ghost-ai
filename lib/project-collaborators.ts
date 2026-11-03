@@ -25,8 +25,9 @@ export async function enrichCollaborators(
       for (const user of users) {
         const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim()
           || user.username
-          || null;
+           || null;
         for (const address of user.emailAddresses) {
+          if (address.verification?.status !== "verified") continue;
           const email = address.emailAddress.trim().toLowerCase();
           if (emailSet.has(email) && !usersByEmail.has(email)) {
             usersByEmail.set(email, { displayName, avatarUrl: user.imageUrl || null });

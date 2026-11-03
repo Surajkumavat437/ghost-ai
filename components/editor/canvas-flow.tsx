@@ -1,6 +1,8 @@
 "use client";
 
 import { useLiveblocksFlow } from "@liveblocks/react-flow";
+import { useOthers, useUpdateMyPresence } from "@liveblocks/react";
+import { useUser } from "@clerk/nextjs";
 import {
   Background,
   BackgroundVariant,
@@ -14,6 +16,8 @@ import {
   ReactFlow,
   useReactFlow,
   useViewport,
+  useNodes,
+  useEdges,
   type NodeProps,
   type EdgeTypes,
 } from "@xyflow/react";
@@ -27,6 +31,50 @@ import { CanvasEdgeRenderer, UpdateCanvasEdgeLabelContext } from "@/components/e
 import { CanvasControlBar } from "@/components/editor/canvas-control-bar";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { useStarterTemplates, type QueuedCanvasTemplate } from "@/components/editor/starter-templates-context";
+import { useCanvasSave } from "@/hooks/use-canvas-save";
+import { useWorkspaceSave } from "@/components/editor/workspace-save-context";
+
+function initials(name: string) {
+  return name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "?";
+}
+
+function CanvasPresence({ currentUserId, flowToScreenPosition, canvasBounds }: {
+  currentUserId: string | undefined;
+  flowToScreenPosition: (position: { x: number; y: number }) => { x: number; y: number };
+  canvasBounds: DOMRect | null;
+}) {
+  const others = useOthers((users) => currentUserId ? users.filter((other) => other.id !== currentUserId) : []);
+  const collaborators = others.slice(0, 5);
+  const cursors = others.filter((other) => other.presence.cursor !== null);
+
+  return <>
+    <div className="pointer-events-none absolute right-4 top-4 z-30 flex items-center gap-2 rounded-full border border-surface-border bg-surface/95 p-1.5 shadow-lg shadow-base/40 backdrop-blur" aria-label={`${others.length} other ${others.length === 1 ? "collaborator" : "collaborators"} in this canvas`}>
+      {collaborators.length > 0 && <div className="flex items-center pl-0.5" aria-label="Collaborators">
+        {collaborators.map((other, index) => {
+          const name = other.info.name || "Collaborator";
+          const avatar = typeof other.info.avatar === "string" ? other.info.avatar.trim() : "";
+          return <div key={other.connectionId} title={name} aria-label={name} className={`relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-surface text-[10px] font-semibold text-copy-primary ring-1 ring-base ${index ? "-ml-2" : ""}`} style={{ backgroundColor: `${other.info.cursorColor}33`, zIndex: 10 - index }}>
+            {avatar ? <img src={avatar} alt="" className="size-full object-cover" referrerPolicy="no-referrer" /> : initials(name)}
+          </div>;
+        })}
+        {others.length > 5 && <span className="-ml-2 flex size-8 shrink-0 items-center justify-center rounded-full border-2 border-surface bg-subtle text-[10px] font-semibold text-copy-secondary ring-1 ring-base" aria-label={`${others.length - 5} more collaborators`}>+{others.length - 5}</span>}
+      </div>}
+    </div>
+    {canvasBounds && cursors.map((other) => {
+      const position = other.presence.cursor;
+      if (!position) return null;
+      const screen = flowToScreenPosition(position);
+      const left = screen.x - canvasBounds.left;
+      const top = screen.y - canvasBounds.top;
+      if (left < -32 || top < -32 || left > canvasBounds.width + 32 || top > canvasBounds.height + 32) return null;
+      const name = other.info.name || "Collaborator";
+      return <div key={other.connectionId} aria-hidden="true" className="pointer-events-none absolute z-40" style={{ left, top, color: other.info.cursorColor }}>
+        <svg className="size-5 drop-shadow-md" viewBox="0 0 20 24" fill="currentColor"><path d="M1 1.5 18.5 13l-7.2 1.1-3.8 7.1L1 1.5Z" stroke="var(--bg-base)" strokeWidth="1.5" strokeLinejoin="round" /></svg>
+        <span className="ml-3 -mt-1 block max-w-36 truncate rounded-md px-1.5 py-0.5 text-[10px] font-semibold text-base shadow-md" style={{ backgroundColor: other.info.cursorColor }}>{name}</span>
+      </div>;
+    })}
+  </>;
+}
 
 function ShapeIcon({ shape }: { shape: NodeShape }) {
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinejoin: "round" as const };
@@ -213,16 +261,56 @@ function ZoomStableBackground() {
   );
 }
 
-function CanvasFlowContent() {
+function CanvasFlowContent({ projectId }: { projectId: string }) {
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, onDelete } =
     useLiveblocksFlow<CanvasNode, CanvasEdge>({
       nodes: { initial: [] },
       edges: { initial: [] },
       suspense: true,
     });
+  const selectedNodes = useNodes<CanvasNode>().filter((node) => node.selected);
+  const selectedEdges = useEdges<CanvasEdge>().filter((edge) => edge.selected);
   const connectionStatus = useStatus();
+  const [canvasReady, setCanvasReady] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const loadStarted = useRef(false);
+  const cleanLoadedSnapshot = useRef(false);
+  const saveBaselineApplied = useRef(false);
+  const { user } = useUser();
+  const updateMyPresence = useUpdateMyPresence();
   const flow = useReactFlow<CanvasNode, CanvasEdge>();
-  const { screenToFlowPosition } = flow;
+  const saveReady = canvasReady && !loadFailed && connectionStatus === "connected";
+  const canQueueSave = !loadFailed && connectionStatus === "connected";
+  const canvasSave = useCanvasSave(projectId, nodes, edges, saveReady, canQueueSave);
+  const { errorMessage: saveErrorMessage, saveNow, status: saveStatus, isDirty, markClean, markDirty } = canvasSave;
+  const { setOnSave, setSaveStatus, setSaveError } = useWorkspaceSave();
+  useLayoutEffect(() => {
+    if (!canvasReady || saveBaselineApplied.current) return;
+    saveBaselineApplied.current = true;
+    if (cleanLoadedSnapshot.current) markClean();
+    else markDirty();
+  }, [canvasReady, markClean, markDirty]);
+  useEffect(() => {
+    setOnSave(canQueueSave && isDirty ? saveNow : undefined);
+    return () => setOnSave(undefined);
+  }, [canQueueSave, isDirty, saveNow, setOnSave]);
+  useEffect(() => {
+    setSaveStatus(saveStatus);
+  }, [saveStatus, setSaveStatus]);
+  useEffect(() => {
+    const unavailableReason = loadFailed
+      ? loadError ?? "Canvas could not load. Refresh the page to try again."
+      : connectionStatus !== "connected"
+        ? "Waiting for the shared canvas connection."
+        : !canvasReady
+          ? "Loading the saved canvas."
+        : !isDirty
+          ? "No canvas changes to save yet."
+          : null;
+    setSaveError(saveErrorMessage ?? unavailableReason);
+  }, [canvasReady, connectionStatus, isDirty, loadError, loadFailed, saveErrorMessage, setSaveError]);
+  const { screenToFlowPosition, flowToScreenPosition } = flow;
   const { zoom } = useViewport();
   const canUndo = useCanUndo();
   const canRedo = useCanRedo();
@@ -244,6 +332,90 @@ function CanvasFlowContent() {
     if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
   }, []);
   useKeyboardShortcuts({ flow, undo, redo });
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Delete" && event.key !== "Backspace") return;
+      const target = event.target;
+      if (target instanceof HTMLElement && target.closest("input, textarea, [contenteditable='true']")) return;
+      if (!selectedNodes.length && !selectedEdges.length) return;
+      event.preventDefault();
+      onDelete({ nodes: selectedNodes, edges: selectedEdges });
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onDelete, selectedEdges, selectedNodes]);
+  useEffect(() => {
+    if (connectionStatus !== "connected" || loadStarted.current) return;
+    loadStarted.current = true;
+    let cancelled = false;
+    let completed = false;
+    const loadStartedAt = performance.now();
+    console.info("[canvas-load] restore started");
+    void (async () => {
+      try {
+        // Liveblocks is the source of truth for an active room. Avoid a Blob
+        // request entirely when collaborators have already populated it.
+        const currentNodes = flow.getNodes();
+        const currentEdges = flow.getEdges();
+        if (currentNodes.length > 0 || currentEdges.length > 0) {
+          completed = true;
+          cleanLoadedSnapshot.current = true;
+          setCanvasReady(true);
+          console.info("[canvas-load] active room already has content", { durationMs: Math.round(performance.now() - loadStartedAt) });
+          return;
+        }
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30_000);
+        const requestStartedAt = performance.now();
+        console.info("[canvas-load] saved snapshot request dispatched");
+        let result: { snapshot: { nodes: CanvasNode[]; edges: CanvasEdge[] } | null };
+        try {
+          const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/canvas`, { cache: "no-store", signal: controller.signal });
+          console.info("[canvas-load] saved snapshot response received", { status: response.status, durationMs: Math.round(performance.now() - requestStartedAt) });
+          if (!response.ok) {
+            let message = `Canvas load failed (${response.status}).`;
+            try {
+              const body: unknown = await response.json();
+              if (typeof body === "object" && body !== null && "error" in body && typeof body.error === "string") message = body.error;
+            } catch { /* Keep the status-based message. */ }
+            throw new Error(message);
+          }
+          result = await response.json();
+        } finally {
+          clearTimeout(timeout);
+        }
+        if (cancelled) return;
+        // Recheck after the request in case another collaborator edited the
+        // room while the saved snapshot was loading.
+        const currentNodesAfterLoad = flow.getNodes();
+        const currentEdgesAfterLoad = flow.getEdges();
+        const roomChangedWhileLoading = currentNodesAfterLoad.length > 0 || currentEdgesAfterLoad.length > 0;
+        cleanLoadedSnapshot.current = !roomChangedWhileLoading;
+        if (!roomChangedWhileLoading && result.snapshot) {
+          if (result.snapshot.nodes.length) onNodesChange(result.snapshot.nodes.map((item) => ({ type: "add" as const, item })));
+          if (result.snapshot.edges.length) onEdgesChange(result.snapshot.edges.map((item) => ({ type: "add" as const, item })));
+        }
+        completed = true;
+        setCanvasReady(true);
+        console.info("[canvas-load] restore completed", { durationMs: Math.round(performance.now() - loadStartedAt), nodes: result.snapshot?.nodes.length ?? 0, edges: result.snapshot?.edges.length ?? 0 });
+      } catch (error) {
+        if (!cancelled) {
+          completed = true;
+          setLoadError(error instanceof Error ? error.message : "Could not load the saved canvas.");
+          setLoadFailed(true);
+          console.error("[canvas-load] restore failed", { durationMs: Math.round(performance.now() - loadStartedAt), name: error instanceof Error ? error.name : "UnknownError", message: error instanceof Error ? error.message : "Unknown error" });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (!completed) {
+        loadStarted.current = false;
+        console.warn("[canvas-load] restore cancelled; will retry when the room reconnects", { durationMs: Math.round(performance.now() - loadStartedAt) });
+      }
+    };
+  }, [connectionStatus, flow, onEdgesChange, onNodesChange, projectId]);
   useEffect(() => {
     let applying = applyingTemplateRef.current;
     if (applying) {
@@ -330,8 +502,7 @@ function CanvasFlowContent() {
     data?.set("label", label);
   }, []);
   const updateEdgeLabel = useMutation(({ storage }, id: string, label: string) => {
-    const data = storage.get("flow")?.get("edges").get(id)?.get("data");
-    data?.set("label", label);
+    storage.get("flow")?.get("edges").get(id)?.set("label", label);
   }, []);
   const updateNodeColor = useMutation((
     { storage },
@@ -345,6 +516,24 @@ function CanvasFlowContent() {
     data.set("textColor", textColor);
   }, []);
   const dropTargetRef = useRef<HTMLDivElement>(null);
+  const [canvasBounds, setCanvasBounds] = useState<DOMRect | null>(null);
+  useEffect(() => {
+    const element = dropTargetRef.current;
+    if (!element) return;
+    const updateBounds = () => setCanvasBounds(element.getBoundingClientRect());
+    updateBounds();
+    const observer = new ResizeObserver(updateBounds);
+    observer.observe(element);
+    window.addEventListener("scroll", updateBounds, true);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", updateBounds, true);
+    };
+  }, []);
+  const handleCanvasMouseMove = useCallback((event: React.MouseEvent) => {
+    updateMyPresence({ cursor: screenToFlowPosition({ x: event.clientX, y: event.clientY }) });
+  }, [screenToFlowPosition, updateMyPresence]);
+  const clearCanvasCursor = useCallback(() => updateMyPresence({ cursor: null }), [updateMyPresence]);
   const [dragPreview, setDragPreview] = useState<{ shape: NodeShape; position: { x: number; y: number } | null } | null>(null);
   const handleDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -362,14 +551,15 @@ function CanvasFlowContent() {
     const payload = parseCanvasShapeDropPayload(rawPayload);
     if (!payload) return;
 
-    const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+    const size = SHAPE_SIZES[payload.shape];
+    const cursorPosition = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+    const position = { x: cursorPosition.x - size.width / 2, y: cursorPosition.y - size.height / 2 };
     let id: string;
     try {
       id = createCanvasNodeId(payload.shape);
     } catch {
       return;
     }
-    const size = SHAPE_SIZES[payload.shape];
     onNodesChange([{
       type: "add",
       item: {
@@ -390,7 +580,7 @@ function CanvasFlowContent() {
   }[connectionStatus];
 
   return (
-    <div ref={dropTargetRef} className="relative h-full w-full overflow-hidden bg-base" onDragOver={handleDragOver} onDrop={handleDrop}>
+    <div ref={dropTargetRef} className="relative h-full w-full overflow-hidden bg-base" onDragOver={handleDragOver} onDrop={handleDrop} onMouseLeave={clearCanvasCursor}>
       <UpdateCanvasNodeLabelContext.Provider value={updateNodeLabel}>
       <UpdateCanvasNodeColorContext.Provider value={updateNodeColor}>
       <UpdateCanvasEdgeLabelContext.Provider value={updateEdgeLabel}>
@@ -403,13 +593,14 @@ function CanvasFlowContent() {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onDelete={onDelete}
+        onMouseMove={handleCanvasMouseMove}
         connectionMode={CANVAS_CONNECTION_MODE}
         defaultEdgeOptions={{
           type: "canvasEdge",
           markerEnd: { type: MarkerType.ArrowClosed, color: "var(--text-primary)" },
           style: { stroke: "var(--text-primary)", strokeWidth: 1.75, strokeLinecap: "round", strokeLinejoin: "round" },
         }}
-        fitView
+        deleteKeyCode={[]}
         colorMode="dark"
         minZoom={0.15}
         maxZoom={1.75}
@@ -417,7 +608,7 @@ function CanvasFlowContent() {
         zoomOnPinch
         panOnScroll={false}
         preventScrolling
-        className="ghost-canvas-flow !bg-transparent"
+        className="ghost-canvas-flow !absolute !inset-0 !bg-transparent"
       >
         <ZoomStableBackground />
         <Panel position="bottom-right" className="!m-3 !w-fit !max-w-[calc(100%-1.5rem)] !pointer-events-none sm:!m-4">
@@ -426,13 +617,14 @@ function CanvasFlowContent() {
             {statusLabel}
           </span>
         </Panel>
+        <CanvasPresence currentUserId={user?.id} flowToScreenPosition={flowToScreenPosition} canvasBounds={canvasBounds} />
       </ReactFlow>
       </UpdateCanvasEdgeLabelContext.Provider>
       </UpdateCanvasNodeColorContext.Provider>
       </UpdateCanvasNodeLabelContext.Provider>
 
       <ShapeToolbar onDragStart={handleShapeDragStart} onDragEnd={clearDragPreview} />
-      <CanvasControlBar flow={flow} canUndo={canUndo} canRedo={canRedo} undo={undo} redo={redo} />
+      <CanvasControlBar flow={flow} canUndo={canUndo} canRedo={canRedo} undo={undo} redo={redo} saveStatus={canvasSave.status} onSave={() => void canvasSave.saveNow()} canSave={canQueueSave && isDirty} loadFailed={loadFailed} />
 
       {dragPreview?.position && (() => {
         const size = SHAPE_SIZES[dragPreview.shape];
@@ -457,10 +649,10 @@ function CanvasFlowContent() {
   );
 }
 
-export function CanvasFlow() {
+export function CanvasFlow({ projectId }: { projectId: string }) {
   return (
     <ReactFlowProvider>
-      <CanvasFlowContent />
+      <CanvasFlowContent projectId={projectId} />
     </ReactFlowProvider>
   );
 }
