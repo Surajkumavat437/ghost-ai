@@ -22,6 +22,7 @@ export function CanvasEdgeRenderer({
   targetPosition,
   markerEnd,
   selected,
+  label,
   data,
 }: EdgeProps<CanvasEdge>) {
   const [hovered, setHovered] = useState(false);
@@ -37,21 +38,21 @@ export function CanvasEdgeRenderer({
     targetPosition,
   });
   const active = hovered || selected;
-  const savedLabel = data?.label ?? "";
+  const savedLabel = (typeof label === "string" ? label : data?.label) ?? "";
 
   const beginEditing = useCallback(() => {
     setDraft(savedLabel);
     setEditing(true);
   }, [savedLabel]);
-  const commit = useCallback(() => {
-    updateLabel?.(id, draft.trim());
+  const commit = useCallback((value: string) => {
+    updateLabel?.(id, value.trim());
     setEditing(false);
-  }, [draft, id, updateLabel]);
+  }, [id, updateLabel]);
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     event.stopPropagation();
     if (event.key === "Enter" || event.key === "Escape") {
       event.preventDefault();
-      commit();
+      commit(event.currentTarget.value);
     }
   };
 
@@ -105,7 +106,7 @@ export function CanvasEdgeRenderer({
                 aria-label="Edit edge label"
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
-                onBlur={commit}
+                onBlur={(event) => commit(event.currentTarget.value)}
                 onKeyDown={onKeyDown}
                 onKeyUp={(event) => event.stopPropagation()}
                 onMouseDown={(event) => event.stopPropagation()}

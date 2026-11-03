@@ -10,6 +10,9 @@ const nextConfig = (phase: string) => ({
   },
   cacheComponents: true,
   partialPrefetching: true,
+  images: {
+    remotePatterns: [{ protocol: "https", hostname: "img.clerk.com", pathname: "/**" }],
+  },
   turbopack: {
     rules: {
       "*.css": {

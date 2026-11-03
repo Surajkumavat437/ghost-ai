@@ -1,69 +1,145 @@
-Review the editor canvas implementation and fix the visual issues. The canvas currently looks like it's floating above the background inside a border box, instead of feeling like a real design canvas. Check `/context/screenshots/image.png` for the current broken state.
+### Task: Investigate and Optimize Canvas Saving Performance
 
-Read the current canvas component code in `components/editor`
+I want you to investigate why saving my canvas takes a long time on the first attempt but becomes significantly faster on the second attempt.
 
-Issues to look for and document:
+My application uses React Flow, Next.js, Vercel Blob for canvas storage, and Prisma with PostgreSQL to store the Blob URL.
 
-DRAG AND DROP ISSUES:
+### 1. Identify why the first save is slow
 
- - Canvas nodes from the node panel cannot be dragged and dropped onto the canvas. Investigate and fix the full drag-and-drop pipeline:
-  - Confirm that draggable nodes in the node panel have the correct draggable attribute and onDragStart handler that sets the node type in dataTransfer
-  - Confirm that the canvas has onDragOver (with preventDefault to allow dropping) and onDrop handlers wired up correctly
-  - Ensure the drop handler reads the node type from dataTransfer, calculates the correct canvas coordinates accounting for pan offset and zoom scale, and creates a new node at the dropped position
-  - Check that no parent element is intercepting or blocking the drag events before they reach the canvas
+Trace the complete saving lifecycle, from clicking Save until the canvas is successfully persisted.
 
-CANVAS VISUAL ISSUES:
+Investigate whether the delay is caused by:
+- Initial connection establishment or cold starts.
+- Vercel Blob upload initialization.
+- Network connection, DNS resolution, TLS handshake, or connection reuse.
+- Request serialization and canvas snapshot generation.
+- Next.js serverless function cold starts.
+- Clerk authentication or project authorization.
+- Prisma database connection initialization.
+- Blob upload and URL generation.
+- Any unnecessary sequential operations or duplicate requests.
 
-- Box shadow or elevation styles making the canvas appear to float
-- Border or border-radius giving it a "card" appearance instead of a canvas feel
-- Background color mismatch between canvas and its container
-- Missing or incorrect dotted background pattern on the canvas
-- z-index or positioning (absolute/relative) causing the floating effect
-- Padding/margin around the canvas creating separation from the background
-- Any wrapper div styles (like rounded corners, shadows, or elevated backgrounds) treating the canvas as a UI card
+Compare the first and second save attempts and identify exactly which operation accounts for the additional delay.
 
-SIDEBAR ISSUES:
+Do not assume that Blob link generation is the problem. Determine whether the URL is generated during upload or whether another operation is responsible for the delay.
 
-- The left and right sidebars should float OVER the canvas, not push or shrink it
-- Sidebars must use position: fixed or position: absolute with a higher z-index so the canvas extends fully behind them
-- The canvas background (dotted pattern) should be visible edge-to-edge underneath both sidebars
-- Sidebars should have a semi-transparent or solid background with a subtle shadow so they feel elevated above the canvas, not embedded in the layout
-- The left sidebar is not fully hiding when toggled off
+### 2. Optimize the actual saving process
 
-— it is partially visible or peeking out instead of sliding completely off-screen. When closed, the sidebar should translate fully outside the viewport with no visible remnant. Check for incorrect transform: translateX values, insufficient negative offset, overflow issues on the parent container, or missing overflow: hidden that is causing the sidebar to remain partially visible during or after the close transition.
+If the delay can be reduced safely, implement the most appropriate optimization.
 
-After documenting all issues fix all of the above so that:
+Consider:
+- Reusing connections where supported.
+- Avoiding unnecessary initialization and repeated operations.
+- Optimizing snapshot serialization.
+- Reducing unnecessary network requests.
+- Optimizing Prisma operations.
+- Avoiding redundant authentication or authorization checks without weakening security.
+- Using supported Vercel Blob SDK capabilities efficiently.
+- Preventing duplicate or overlapping save operations.
 
-1. The canvas has a dotted background pattern filling the full viewport naturally
-2. The canvas feels flush with the surrounding background — no floating, no card effect
-3. Box-shadow, excessive borders, and elevated styling are removed from the canvas
-4. The canvas looks and feels like an infinite design canvas (similar to Figma or Excalidraw)
-5. Both sidebars float over the canvas and are fully hidden when toggled off
-6. Nodes can be dragged from the node panel and dropped onto the canvas correctly
+Do not introduce artificial delays, background work that can lose data, or premature success responses.
 
-## Cross-check Against This Workspace — 2026-11-02
+**Important:** Never sacrifice data integrity, reliability, or successful persistence just to make the Save button appear faster.
 
-The list above describes issues to investigate, but the matching problems are already addressed in the current editor implementation. The code and `context/screenshots/image.png` were reviewed; no code changes were needed for this audit.
+### 3. Improve the Save button behavior
 
-### Drag and drop
+If the actual upload or URL generation cannot be made significantly faster without compromising functionality, improve the UI experience instead.
 
-- `components/editor/canvas-flow.tsx` exposes draggable toolbar buttons and writes the selected shape plus its dimensions to the custom `application/ghost-canvas-shape` data-transfer type.
-- The created React Flow node type is intentionally always `canvasNode`; the dragged shape is stored in `node.data.shape` and controls its renderer. Transferring a different node type would not match this app's node schema.
-- The canvas wrapper calls `preventDefault()` during `dragover`, allowing the drop, and handles `drop` to read and validate the payload.
-- `screenToFlowPosition()` converts pointer screen coordinates into flow coordinates, accounting for viewport pan and zoom. The resulting node is added through Liveblocks-backed `onNodesChange`.
-- The toolbar is inside the same canvas wrapper, and the fixed sidebar overlays are separate siblings. The current code has no parent event handler or closed sidebar intercepting the drop target.
+Evaluate these approaches:
 
-### Canvas visuals
+**Option A: Disable the Save button while saving**
+- Prevent multiple save requests.
+- Show a clear Saving indicator.
+- Re-enable the button after success or failure.
 
-- The active project route and editor layout give the canvas the full area below the fixed navbar. The route section and canvas wrappers have no card border, radius, padding, or shadow.
-- React Flow's root is transparent over the base surface, with a dotted `Background` rendered inside the canvas. The screenshot shows the dots extending across the visible canvas. The minimap has its own frame and shadow; those styles belong to the minimap, not the canvas.
+**Option B: Hide the Save button during initialization**
+- Only consider this if there is a genuine initialization or connection-establishment phase.
+- Restore the button once the saving mechanism is ready.
+- Do not hide it during normal canvas editing.
 
-### Sidebars
+**Option C: Show a proper saving state**
+- Replace the button with a subtle progress indicator while saving.
+- Show Saved after successful persistence.
+- Show Retry with a meaningful error message if saving fails.
 
-- `ProjectSidebar` and the AI panel use fixed positioning above the canvas, so opening them does not reduce the canvas dimensions. The project sidebar has a translucent surface and shadow.
-- Both sidebars start closed. The project sidebar's closed transform moves it beyond the viewport by its full width plus an additional offset, and it is also made transparent, inert, and non-interactive. The AI panel is unmounted while closed.
-- The screenshot shows the closed canvas but does not capture an open/close transition; the closed-state behavior was verified from the component logic.
+Choose the simplest approach that provides a good user experience.
 
-### Outcome
+### 4. Preserve existing functionality
 
-No implementation issue from this checklist reproduced in the current code. Keep this cross-check as context if the online issue list is reused; update the checklist if a new report reproduces one of these symptoms.
+These requirements are mandatory:
+
+- Do not change the existing Vercel Blob storage architecture.
+- Do not change the Prisma schema or database relationships.
+- Preserve existing authentication and project authorization.
+- Preserve React Flow functionality and canvas data integrity.
+- Do not break existing canvas loading or saving.
+- Do not introduce unnecessary dependencies.
+- Do not rewrite working code unnecessarily.
+- Ensure retry functionality remains reliable.
+- Ensure failed uploads never get reported as successful.
+
+### 5. Measure and verify the improvement
+
+Add temporary diagnostic timing measurements around:
+
+1. Save button click.
+2. Snapshot generation.
+3. Frontend request dispatch.
+4. API route entry.
+5. Authentication and authorization.
+6. Blob upload start and completion.
+7. Prisma update start and completion.
+8. Final frontend response.
+
+Compare the first and second save attempts using the same or equivalent canvas payload.
+
+Run relevant tests, TypeScript checks, lint, and production build.
+
+### Expected result
+
+I want the first save to be as fast as reasonably possible without compromising reliability.
+
+If the first save is inherently slower because of cold starts or connection initialization, provide a clear explanation and implement an appropriate UI state rather than attempting unsafe optimizations.
+
+### Final report
+
+After completing the task, explain:
+
+1. The actual reason the first save was slower.
+2. Why the second save was faster.
+3. Which operations consumed the most time.
+4. What optimizations you implemented.
+5. Whether the Save button UI needed changes.
+6. Before-and-after timing measurements.
+7. Any remaining limitations.
+
+Do not guess the root cause or claim performance improvements without measurement.
+
+### CRITICAL: EXISTING FUNCTIONALITY PROTECTION
+
+My canvas saving functionality is currently working. Do not break, replace, rewrite, or unnecessarily refactor any existing working implementation.
+
+This task is primarily a performance investigation and optimization task, NOT a feature redevelopment task.
+
+Follow these rules strictly:
+
+1. First inspect and understand the existing implementation before making any changes.
+2. Treat the current working save and load functionality as the baseline.
+3. Do not modify the existing storage architecture, API contracts, Prisma schema, authentication, authorization, or React Flow implementation unless you identify a specific, measurable problem that requires a minimal change.
+4. Do not replace working functions or introduce alternative saving mechanisms.
+5. Prefer isolated, backward-compatible performance optimizations.
+6. If an optimization introduces any risk to data integrity or existing functionality, do not implement it.
+7. Do not modify unrelated files or components.
+8. Preserve existing error handling, retry functionality, and canvas persistence behavior.
+9. Before changing any critical saving logic, explain the proposed change and its potential impact.
+10. If no safe optimization is identified, leave the saving implementation untouched and improve only the loading/saving UI feedback if necessary.
+
+**Mandatory verification:** After every change, verify that:
+- Existing canvas data can still be saved.
+- Previously saved canvases can still be loaded.
+- Updating an existing canvas works.
+- Failed saves can be retried.
+- Multiple clicks cannot cause conflicting saves.
+- Authentication and project permissions remain intact.
+
+If you cannot confidently preserve existing behavior, do not modify that part of the implementation.

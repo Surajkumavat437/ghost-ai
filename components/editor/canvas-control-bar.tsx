@@ -1,9 +1,10 @@
 "use client";
 
-import { Maximize, Redo2, Undo2, ZoomIn, ZoomOut } from "lucide-react";
+import { AlertCircle, Check, LoaderCircle, Maximize, Redo2, Save, Undo2, ZoomIn, ZoomOut } from "lucide-react";
 import type { ReactFlowInstance } from "@xyflow/react";
 
 import type { CanvasEdge, CanvasNode } from "@/types/canvas";
+import type { CanvasSaveStatus } from "@/hooks/use-canvas-save";
 
 interface CanvasControlBarProps {
   flow: ReactFlowInstance<CanvasNode, CanvasEdge>;
@@ -11,11 +12,16 @@ interface CanvasControlBarProps {
   canRedo: boolean;
   undo: () => void;
   redo: () => void;
+  saveStatus: CanvasSaveStatus;
+  onSave: () => void;
+  canSave: boolean;
+  loadFailed: boolean;
 }
 
 const iconButtonClass = "flex size-8 items-center justify-center rounded-full text-copy-secondary transition-colors hover:bg-subtle hover:text-copy-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-copy-secondary";
 
-export function CanvasControlBar({ flow, canUndo, canRedo, undo, redo }: CanvasControlBarProps) {
+export function CanvasControlBar({ flow, canUndo, canRedo, undo, redo, saveStatus, onSave, canSave, loadFailed }: CanvasControlBarProps) {
+  const saveLabel = loadFailed ? "Canvas could not load" : saveStatus === "saving" ? "Saving canvas" : saveStatus === "error" ? "Canvas save failed; retry" : !canSave ? "Make a canvas change to enable saving" : saveStatus === "saved" ? "Canvas saved" : "Save canvas";
   return (
     <div aria-label="Canvas controls" className="absolute bottom-20 left-4 z-20 flex items-center gap-1 rounded-full border border-surface-border bg-surface/95 p-1.5 shadow-xl shadow-base/50 backdrop-blur min-[44rem]:bottom-5">
       <div role="group" aria-label="Zoom controls" className="flex items-center gap-0.5">
@@ -38,6 +44,11 @@ export function CanvasControlBar({ flow, canUndo, canRedo, undo, redo }: CanvasC
           <Redo2 className="size-4" />
         </button>
       </div>
+      <span aria-hidden="true" className="mx-1 h-5 w-px bg-surface-border" />
+      <button type="button" aria-label={saveLabel} title={saveLabel} onClick={onSave} disabled={!canSave || saveStatus === "saving"} className={`${iconButtonClass} gap-1 px-2 text-[10px] disabled:cursor-default`}>
+        {loadFailed || saveStatus === "error" ? <AlertCircle className="size-4 text-state-error" /> : saveStatus === "saving" ? <LoaderCircle className="size-4 animate-spin" /> : saveStatus === "saved" ? <Check className="size-4 text-state-success" /> : <Save className="size-4" />}
+        <span>{loadFailed ? "Load error" : saveStatus === "saving" ? "Saving" : saveStatus === "error" ? "Retry" : !canSave ? "No changes" : saveStatus === "saved" ? "Saved" : "Save"}</span>
+      </button>
     </div>
   );
 }

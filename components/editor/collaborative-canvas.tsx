@@ -5,7 +5,7 @@ import { useState } from "react";
 
 import { CanvasFlow } from "@/components/editor/canvas-flow";
 
-function CanvasRoomContent({ onError }: { onError: () => void }) {
+function CanvasRoomContent({ onError, projectId }: { onError: () => void; projectId: string }) {
   useErrorListener(onError);
   return (
     <ClientSideSuspense
@@ -29,7 +29,7 @@ function CanvasRoomContent({ onError }: { onError: () => void }) {
         </div>
       }
     >
-      <CanvasFlow />
+      <CanvasFlow projectId={projectId} />
     </ClientSideSuspense>
   );
 }
@@ -45,8 +45,8 @@ function CanvasRoom({ roomId }: { roomId: string }) {
   }
 
   return (
-    <RoomProvider id={roomId} initialPresence={{ cursor: null, isThinking: false }}>
-      <CanvasRoomContent onError={() => setHasError(true)} />
+    <RoomProvider id={roomId} initialPresence={{ cursor: null, thinking: false }}>
+      <CanvasRoomContent projectId={roomId} onError={() => setHasError(true)} />
     </RoomProvider>
   );
 }
