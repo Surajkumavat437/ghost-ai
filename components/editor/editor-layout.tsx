@@ -18,19 +18,20 @@ interface EditorLayoutProps {
   children?: ReactNode
   projects: EditorProject[]
   activeProject?: EditorProject | null
+  specs?: { id: string; createdAt: string; filename: string }[]
 }
 
-export function EditorLayout({ children, projects, activeProject = null }: EditorLayoutProps) {
+export function EditorLayout({ children, projects, activeProject = null, specs = [] }: EditorLayoutProps) {
   return (
     <StarterTemplatesProvider>
       <WorkspaceSaveProvider>
-        <EditorLayoutContent projects={projects} activeProject={activeProject}>{children}</EditorLayoutContent>
+      <EditorLayoutContent projects={projects} activeProject={activeProject} specs={specs}>{children}</EditorLayoutContent>
       </WorkspaceSaveProvider>
     </StarterTemplatesProvider>
   )
 }
 
-function EditorLayoutContent({ children, projects, activeProject = null }: EditorLayoutProps) {
+function EditorLayoutContent({ children, projects, activeProject = null, specs = [] }: EditorLayoutProps) {
   const workspaceSave = useWorkspaceSave()
   const router = useRouter()
   const { openStarterTemplates } = useStarterTemplates()
@@ -81,7 +82,7 @@ function EditorLayoutContent({ children, projects, activeProject = null }: Edito
           )
         )}
       </main>
-      {activeProject && <AiSidebar isOpen={isAiSidebarOpen} onClose={() => setIsAiSidebarOpen(false)} />}
+      {activeProject && <AiSidebar isOpen={isAiSidebarOpen} onClose={() => setIsAiSidebarOpen(false)} projectId={activeProject.id} specs={specs} />}
       <ProjectDialogs
         dialog={projectActions.dialog}
         formName={projectActions.formName}

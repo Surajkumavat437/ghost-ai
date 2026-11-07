@@ -100,6 +100,7 @@ shadcn/ui on top of Tailwind. No custom design system. Components live in `compo
 - Editor workspace: full-viewport layout — floating sidebar overlay on the left, center canvas, slide-over AI sidebar on the right. Both sidebars start closed, open only from their navbar toggles, and close when switching projects.
 - Sidebars: floating overlay with dark semi-transparent background and subtle border.
 - Modals and dialogs: centered overlay, `rounded-3xl`, dark background with backdrop blur.
+- Responsive template picker: use a safe-area-aware bottom sheet on narrow screens and a centered, wide dialog from `sm` upward; keep the heading fixed and the list independently scrollable. Show ecommerce-style template cards in one column on phones, two on tablet/laptop widths, and three on very wide screens; keep a consistent diagram stage, details, metadata, and import action in every card.
 - Navbar: top bar with dark background and bottom border.
 
 ### Authentication Pages
