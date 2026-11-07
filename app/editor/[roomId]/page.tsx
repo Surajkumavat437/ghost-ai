@@ -2,9 +2,10 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 
 import { AccessDenied } from "@/components/editor/access-denied";
-import { CollaborativeCanvas } from "@/components/editor/collaborative-canvas";
+import { CollaborativeCanvas, CollaborativeRoomProvider } from "@/components/editor/collaborative-canvas";
 import { EditorLayout } from "@/components/editor/editor-layout";
 import { getAccessibleProject, getAccessibleProjects } from "@/lib/projects";
+import { prisma } from "@/lib/prisma";
 
 export const instant = false;
 
@@ -22,13 +23,21 @@ export default async function ProjectEditorPage({
 
   if (!project) return <AccessDenied />;
 
+  const specs = await prisma.projectSpec.findMany({
+    where: { projectId: project.id },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, createdAt: true },
+  });
+
   return (
-    <EditorLayout key={project.id} projects={projects} activeProject={project}>
-      <section aria-label={`${project.name} workspace`} className="h-full min-h-0 min-w-0 overflow-hidden">
-        <div className="relative h-full min-h-0 w-full overflow-hidden bg-base">
-          <CollaborativeCanvas roomId={project.id} />
-        </div>
-      </section>
-    </EditorLayout>
+    <CollaborativeRoomProvider key={project.id} roomId={project.id}>
+      <EditorLayout projects={projects} activeProject={project} specs={specs.map((spec) => ({ id: spec.id, createdAt: spec.createdAt.toISOString(), filename: `spec-${spec.id}.md` }))}>
+        <section aria-label={`${project.name} workspace`} className="h-full min-h-0 min-w-0 overflow-hidden">
+          <div className="relative h-full min-h-0 w-full overflow-hidden bg-base">
+            <CollaborativeCanvas projectId={project.id} />
+          </div>
+        </section>
+      </EditorLayout>
+    </CollaborativeRoomProvider>
   );
 }

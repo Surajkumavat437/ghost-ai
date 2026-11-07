@@ -1,145 +1,150 @@
-### Task: Investigate and Optimize Canvas Saving Performance
+# Debug and Fix OpenRouter Integration in Ghost AI
 
-I want you to investigate why saving my canvas takes a long time on the first attempt but becomes significantly faster on the second attempt.
+Investigate and fix the error occurring when the Trigger.dev `design-agent` task attempts to generate a design plan using OpenRouter and the NVIDIA Nemotron model.
 
-My application uses React Flow, Next.js, Vercel Blob for canvas storage, and Prisma with PostgreSQL to store the Blob URL.
+**Current error:**
 
-### 1. Identify why the first save is slow
+```text
+AbortTaskRunError:
+OpenRouter could not generate a design plan.
+Check your API key and prompt, then try again.
 
-Trace the complete saving lifecycle, from clicking Save until the canvas is successfully persisted.
+at generateDesignPlan (trigger/design-agent.ts:156)
+at run (trigger/design-agent.ts:384)
+```
 
-Investigate whether the delay is caused by:
-- Initial connection establishment or cold starts.
-- Vercel Blob upload initialization.
-- Network connection, DNS resolution, TLS handshake, or connection reuse.
-- Request serialization and canvas snapshot generation.
-- Next.js serverless function cold starts.
-- Clerk authentication or project authorization.
-- Prisma database connection initialization.
-- Blob upload and URL generation.
-- Any unnecessary sequential operations or duplicate requests.
+**Confirmed working:**
+- The OpenRouter API key is valid.
+- `GET https://openrouter.ai/api/v1/key` succeeds.
+- A direct PowerShell request to `POST https://openrouter.ai/api/v1/chat/completions` succeeds.
+- The model successfully returns a response using:
 
-Compare the first and second save attempts and identify exactly which operation accounts for the additional delay.
+`nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free`
 
-Do not assume that Blob link generation is the problem. Determine whether the URL is generated during upload or whether another operation is responsible for the delay.
+Therefore, do not assume the API key or model is the problem.
 
-### 2. Optimize the actual saving process
+## 1. Investigate the root cause
 
-If the delay can be reduced safely, implement the most appropriate optimization.
+Inspect the complete implementation of:
+- `trigger/design-agent.ts`
+- `generateDesignPlan()`
+- OpenRouter SDK initialization and request construction
+- Response extraction and JSON parsing
+- The system prompt and design-plan output schema
+- Trigger.dev environment variable configuration
+- Error handling, retries and timeouts
 
-Consider:
-- Reusing connections where supported.
-- Avoiding unnecessary initialization and repeated operations.
-- Optimizing snapshot serialization.
-- Reducing unnecessary network requests.
-- Optimizing Prisma operations.
-- Avoiding redundant authentication or authorization checks without weakening security.
-- Using supported Vercel Blob SDK capabilities efficiently.
-- Preventing duplicate or overlapping save operations.
+Determine exactly why the direct API test succeeds but the Trigger.dev task fails.
 
-Do not introduce artificial delays, background work that can lose data, or premature success responses.
+Check specifically for:
 
-**Important:** Never sacrifice data integrity, reliability, or successful persistence just to make the Save button appear faster.
+- Incorrect OpenRouter SDK usage or initialization.
+- Incorrect model identifier.
+- Incorrect request parameters or message structure.
+- Incorrect environment variable name (`NVIDIA_OMNI_API_KEY`).
+- SDK response structure being accessed incorrectly.
+- Empty or unexpected model response.
+- Reasoning content being confused with the final answer.
+- JSON extraction or parsing failures.
+- Model output not matching the expected `actions` schema.
+- Timeout, abort signal, or retry handling problems.
+- Errors being swallowed and replaced with generic `AbortTaskRunError` messages.
 
-### 3. Improve the Save button behavior
+Do not guess. Use actual logs, source code, and the SDK's installed version and documentation to establish the cause.
 
-If the actual upload or URL generation cannot be made significantly faster without compromising functionality, improve the UI experience instead.
+## 2. Improve error tracking
 
-Evaluate these approaches:
+Replace generic error handling that hides the original provider error.
 
-**Option A: Disable the Save button while saving**
-- Prevent multiple save requests.
-- Show a clear Saving indicator.
-- Re-enable the button after success or failure.
+Add structured, useful logging for:
+- Provider and model.
+- HTTP status code.
+- Provider error message.
+- Response structure.
+- Response finish reason.
+- Empty response detection.
+- JSON parsing failures.
+- Schema validation failures.
+- Retry attempts and timeout errors.
 
-**Option B: Hide the Save button during initialization**
-- Only consider this if there is a genuine initialization or connection-establishment phase.
-- Restore the button once the saving mechanism is ready.
-- Do not hide it during normal canvas editing.
+Never log API keys, authorization headers, or other secrets.
 
-**Option C: Show a proper saving state**
-- Replace the button with a subtle progress indicator while saving.
-- Show Saved after successful persistence.
-- Show Retry with a meaningful error message if saving fails.
+Preserve the original error and its cause when wrapping errors.
 
-Choose the simplest approach that provides a good user experience.
+## 3. Fix the actual problem
 
-### 4. Preserve existing functionality
+After identifying the root cause:
 
-These requirements are mandatory:
+- Implement the smallest reliable fix.
+- Ensure the OpenRouter request uses the correct API and SDK conventions.
+- Ensure the model's final response is extracted correctly.
+- Ensure JSON parsing handles markdown fences and surrounding text safely when necessary.
+- Validate the returned design plan before applying canvas actions.
+- Handle empty, malformed, or unexpected responses gracefully.
+- Implement appropriate retry handling for transient failures.
+- Do not retry permanent authentication, configuration, or validation errors unnecessarily.
+- Preserve cancellation and timeout behavior.
 
-- Do not change the existing Vercel Blob storage architecture.
-- Do not change the Prisma schema or database relationships.
-- Preserve existing authentication and project authorization.
-- Preserve React Flow functionality and canvas data integrity.
-- Do not break existing canvas loading or saving.
-- Do not introduce unnecessary dependencies.
-- Do not rewrite working code unnecessarily.
-- Ensure retry functionality remains reliable.
-- Ensure failed uploads never get reported as successful.
+## 4. Preserve existing architecture
 
-### 5. Measure and verify the improvement
+Do not rewrite the application.
 
-Add temporary diagnostic timing measurements around:
+Keep the existing:
+- Trigger.dev task structure.
+- Liveblocks integration.
+- Real-time AI presence and status updates.
+- Canvas action types and validation.
+- Node positioning and spacing logic.
+- Edge creation and deletion.
+- Cleanup and cancellation behavior.
+- Existing project folder structure.
 
-1. Save button click.
-2. Snapshot generation.
-3. Frontend request dispatch.
-4. API route entry.
-5. Authentication and authorization.
-6. Blob upload start and completion.
-7. Prisma update start and completion.
-8. Final frontend response.
+Only change code necessary to fix the OpenRouter integration and its error handling.
 
-Compare the first and second save attempts using the same or equivalent canvas payload.
+## 5. Verify the fix
 
-Run relevant tests, TypeScript checks, lint, and production build.
+Run the relevant TypeScript checks, tests, and available project validation commands.
 
-### Expected result
+Test the complete flow:
 
-I want the first save to be as fast as reasonably possible without compromising reliability.
+1. Trigger the design-agent task.
+2. Send a prompt requesting a login system architecture.
+3. Verify that Nemotron returns a valid design plan.
+4. Verify that the returned actions pass validation.
+5. Verify that nodes and edges are created in Liveblocks.
+6. Verify that errors are reported accurately if generation fails.
 
-If the first save is inherently slower because of cold starts or connection initialization, provide a clear explanation and implement an appropriate UI state rather than attempting unsafe optimizations.
+Use this test prompt:
 
-### Final report
+"Design a basic login system architecture. Include a React frontend with login and registration pages, a Node.js and Express backend exposing authentication REST APIs, a PostgreSQL database storing user accounts, password hashing using bcrypt, and JWT-based authentication. Show how these components communicate and connect them with appropriate arrows."
 
-After completing the task, explain:
+## Final requirement
 
-1. The actual reason the first save was slower.
-2. Why the second save was faster.
-3. Which operations consumed the most time.
-4. What optimizations you implemented.
-5. Whether the Save button UI needed changes.
-6. Before-and-after timing measurements.
-7. Any remaining limitations.
+Before finishing, explain:
 
-Do not guess the root cause or claim performance improvements without measurement.
+1. The exact root cause.
+2. The files modified.
+3. What changes were made.
+4. Why the fix works.
+5. Whether the complete Trigger.dev-to-Liveblocks flow was successfully tested.
 
-### CRITICAL: EXISTING FUNCTIONALITY PROTECTION
+Do not claim the issue is fixed unless the relevant tests actually pass.
 
-My canvas saving functionality is currently working. Do not break, replace, rewrite, or unnecessarily refactor any existing working implementation.
+## CRITICAL: SAFETY AND BACKWARD COMPATIBILITY
 
-This task is primarily a performance investigation and optimization task, NOT a feature redevelopment task.
+This is an existing, working application. Your priority is to fix the OpenRouter generation failure without breaking any previously working functionality.
 
 Follow these rules strictly:
 
-1. First inspect and understand the existing implementation before making any changes.
-2. Treat the current working save and load functionality as the baseline.
-3. Do not modify the existing storage architecture, API contracts, Prisma schema, authentication, authorization, or React Flow implementation unless you identify a specific, measurable problem that requires a minimal change.
-4. Do not replace working functions or introduce alternative saving mechanisms.
-5. Prefer isolated, backward-compatible performance optimizations.
-6. If an optimization introduces any risk to data integrity or existing functionality, do not implement it.
-7. Do not modify unrelated files or components.
-8. Preserve existing error handling, retry functionality, and canvas persistence behavior.
-9. Before changing any critical saving logic, explain the proposed change and its potential impact.
-10. If no safe optimization is identified, leave the saving implementation untouched and improve only the loading/saving UI feedback if necessary.
+1. **Inspect before modifying:** Read the existing implementation and understand how its components interact before making changes.
+2. **Minimal changes only:** Modify only the code directly responsible for the OpenRouter integration, response handling, and error reporting.
+3. **Preserve existing behavior:** Do not remove, rename, restructure, or rewrite existing functions, components, interfaces, types, task definitions, or workflows unless absolutely necessary to fix the identified issue.
+4. **No unnecessary refactoring:** Do not improve unrelated code, change formatting across files, upgrade dependencies, or introduce new architectural patterns.
+5. **Preserve integrations:** Do not break Trigger.dev, Liveblocks, canvas synchronization, real-time presence, node operations, edge operations, or cleanup logic.
+6. **Protect configuration:** Do not overwrite `.env.local`, modify existing environment variables unnecessarily, or expose API keys.
+7. **Test before concluding:** Run TypeScript checks and relevant tests. Verify that existing functionality remains intact.
+8. **Review changes:** Before finishing, inspect your changes and explain exactly what was modified and why.
 
-**Mandatory verification:** After every change, verify that:
-- Existing canvas data can still be saved.
-- Previously saved canvases can still be loaded.
-- Updating an existing canvas works.
-- Failed saves can be retried.
-- Multiple clicks cannot cause conflicting saves.
-- Authentication and project permissions remain intact.
+If a proposed change could affect existing functionality, investigate its impact before applying it. Prefer the smallest reversible change
 
-If you cannot confidently preserve existing behavior, do not modify that part of the implementation.
+**Do not rewrite the application. Fix the specific bug while preserving everything else.**

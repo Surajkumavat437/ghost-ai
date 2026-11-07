@@ -3,6 +3,7 @@ import { getCursorColor, getLiveblocksClient } from "@/lib/liveblocks";
 import { acquireLiveblocksRoomLock } from "@/lib/liveblocks-room-lock";
 import { prisma } from "@/lib/prisma";
 import { getVerifiedCollaboratorEmails } from "@/lib/project-access";
+import { AI_CHAT_FEED_ID, AI_STATUS_FEED_ID } from "@/types/tasks";
 
 interface LiveblocksAuthBody {
   room: string;
@@ -23,6 +24,22 @@ function isLiveblocksAuthBody(value: unknown): value is LiveblocksAuthBody {
   }
   const room = (value as Record<string, unknown>).room;
   return typeof room === "string" && room.trim().length > 0 && room.length <= 64;
+}
+
+async function ensureRoomFeed(roomId: string, feedId: string) {
+  const liveblocks = getLiveblocksClient();
+  try {
+    await liveblocks.getFeed({ roomId, feedId });
+    return;
+  } catch {
+    try {
+      await liveblocks.createFeed({ roomId, feedId });
+      return;
+    } catch {
+      // A concurrent room join may have created it after our initial lookup.
+      await liveblocks.getFeed({ roomId, feedId });
+    }
+  }
 }
 
 export async function POST(request: Request) {
@@ -80,6 +97,11 @@ export async function POST(request: Request) {
     });
     if (!project) return jsonError("Forbidden", 403);
 
+    await Promise.all([
+      ensureRoomFeed(project.id, AI_CHAT_FEED_ID),
+      ensureRoomFeed(project.id, AI_STATUS_FEED_ID),
+    ]);
+
     const cursorColor = getCursorColor(userId);
 
     const session = liveblocks.prepareSession(userId, {
@@ -88,7 +110,9 @@ export async function POST(request: Request) {
         cursorColor,
       },
     });
-    session.allow(project.id, ["room:write"]);
+    // Room storage and presence keep their existing access; feeds have their
+    // own permission scope and power the shared AI chat/status feeds.
+    session.allow(project.id, ["room:write", "feeds:write"]);
 
     const { status, body: tokenBody } = await session.authorize();
     return new Response(tokenBody, {

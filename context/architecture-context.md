@@ -53,14 +53,16 @@
 ### Design Generation
 
 - Input: user prompt, project context, and current canvas state.
-- Execution: durable background task via Trigger.dev.
-- Output: structured node and edge updates written into the shared Liveblocks room.
+- Execution: durable background task via Trigger.dev using OpenRouter's `nvidia/nemotron-3-nano-30b-a3b` model for a validated set of canvas actions. The Trigger task reads `NVIDIA_OMNI_API_KEY` from its runtime environment. Empty provider answers retry up to three times before the task reports a clear failure.
+- Output: node and edge changes are applied through Liveblocks Storage mutations to the existing React Flow `flow` state, preserving the shared room as the source of truth. Independent generated node groups are arranged in connected left-to-right layers and placed below existing canvas content; actions that connect to existing nodes retain their generated placement.
+- The AI publishes shared status messages to the Liveblocks `ai-status-feed` and presence (`cursor` and `thinking`) while it runs; presence expires automatically if a task is interrupted. Sidebar status is derived from the newest validated feed message.
+- The AI sidebar room chat uses a separate room-scoped Liveblocks `ai-chat` feed. Chat messages are validated against the shared Zod contract before display; chat never shares the AI progress feed.
 
 ### Spec Generation
 
-- Input: current canvas graph and project context.
-- Execution: durable background task via Trigger.dev.
-- Output: Markdown technical spec saved to the filesystem and linked to the project in the database.
+- Input: current canvas graph and project chat context.
+- Execution: durable background task via Trigger.dev; completed Markdown is saved as a private Vercel Blob at `specs/{projectId}/{specId}.md`.
+- Output: Markdown technical spec linked to the project through a `ProjectSpec` metadata record in PostgreSQL. Authenticated project members download it through the project spec download route.
 
 ## Invariants
 
