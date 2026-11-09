@@ -182,6 +182,20 @@ hook is still supported when you need both the run and all its streams at once.
 
 ### 6. Send input back into a running task
 
+The `accessToken` must be a Public Access Token minted on the backend with
+write access to `inputStreams` scoped to the same `runId` passed to the hook.
+For example, when the run ID has been verified for the signed-in user:
+
+```ts
+const accessToken = await auth.createPublicToken({
+  scopes: { write: { inputStreams: [runId] } },
+});
+```
+
+Return this token to the authorized frontend through your existing server-side
+token-minting flow. Do not use a read-only run subscription token for sending
+input.
+
 ```tsx
 "use client";
 import { useInputStreamSend } from "@trigger.dev/react-hooks";

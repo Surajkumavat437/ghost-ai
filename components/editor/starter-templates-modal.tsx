@@ -127,7 +127,7 @@ function getTemplateIcon(id: string) {
 export function StarterTemplatesModal({ open, onOpenChange, onImport }: StarterTemplatesModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent className="fixed inset-x-0 bottom-0 top-auto left-0 flex max-h-[94dvh] w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-b-none rounded-t-3xl border-x-0 border-b-0 border-t border-surface-border bg-base p-0 shadow-2xl sm:inset-auto sm:top-1/2 sm:left-1/2 sm:max-h-[min(90dvh,60rem)] sm:w-[min(76rem,calc(100%-2rem))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-3xl sm:border">
+    <DialogContent className="fixed inset-x-0 bottom-0 top-auto left-0 flex max-h-[94dvh] w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-b-none rounded-t-3xl border-x-0 border-b-0 border-t border-surface-border bg-base p-0 shadow-2xl sm:inset-auto sm:top-1/2 sm:left-1/2 sm:max-h-[min(90dvh,60rem)] sm:w-[min(76rem,calc(100%-2rem))] sm:max-w-none sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-3xl sm:border">
         <DialogHeader className="shrink-0 border-b border-surface-border bg-surface/70 px-5 pb-4 pt-6 sm:px-8 sm:pb-6 sm:pt-7">
           <div className="flex flex-wrap items-end justify-between gap-4 pr-9">
             <div className="min-w-0">

@@ -398,7 +398,7 @@ function enforceNodeSpacing(actions: DesignAction[], currentNodes: Record<string
 /** Arrange newly generated components by their data-flow depth, not model-picked coordinates. */
 export function layoutGeneratedGraph(actions: DesignAction[], currentNodes: Record<string, unknown>) {
   const nodes = actions.flatMap((action) => action.type === "addNode" ? [action.node] : []);
-  if (nodes.length < 2) return;
+  if (nodes.length === 0) return;
   const nodeIds = new Set(nodes.map((node) => node.id));
   const connectsToExisting = actions.some((action) => action.type === "addEdge" && (
     (currentNodes[action.edge.source] && !nodeIds.has(action.edge.source)) ||

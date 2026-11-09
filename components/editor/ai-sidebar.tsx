@@ -409,7 +409,7 @@ export function AiSidebar({ isOpen, onClose, projectId, specs }: AiSidebarProps)
         </Tabs>
       </aside>
       <Dialog open={Boolean(selectedSpec)} onOpenChange={(open) => { if (!open) closeSpecPreview(); }}>
-        <DialogContent className="!flex h-[80dvh] max-h-[85dvh] min-h-0 w-[calc(100vw-1rem)] max-w-4xl flex-col gap-4 overflow-hidden p-4 sm:w-[calc(100vw-2rem)] sm:p-6" showCloseButton={false}>
+        <DialogContent className="!z-[71] !flex h-[80dvh] max-h-[85dvh] min-h-0 w-[calc(100vw-1rem)] max-w-4xl flex-col gap-4 overflow-hidden p-4 sm:w-[calc(100vw-2rem)] sm:p-6" overlayClassName="!z-[70]" showCloseButton={false}>
           <DialogHeader className="shrink-0 pr-8">
             <DialogTitle className="truncate" style={{ color: "white" }}>{selectedSpec?.filename ?? "Spec preview"}</DialogTitle>
             <DialogDescription style={{ color: "white" }}>{selectedSpec && hasMounted ? new Date(selectedSpec.createdAt).toLocaleString() : "Markdown specification preview"}</DialogDescription>

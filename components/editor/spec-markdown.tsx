@@ -56,7 +56,7 @@ export function SpecMarkdown({ content }: { content: string }) {
       continue;
     }
 
-    const heading = trimmed.match(/^(#{1,6})\s+(.+?)\s*#*$/);
+    const heading = trimmed.match(/^(#{1,6})\s+(.+?)(?:\s+#+)?$/);
     if (heading) {
       const level = Math.min(heading[1].length, 4);
       const headingClasses = ["", "mb-1 text-2xl", "mb-1 mt-2 text-xl", "text-lg", "text-base"][level];

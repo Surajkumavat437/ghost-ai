@@ -121,6 +121,20 @@ test("lays out a new architecture in connected left-to-right layers below existi
   assert.deepEqual(nodes.map(({ x, y }) => [x, y]), [[100, 660], [400, 660], [700, 660]]);
 });
 
+test("places one independent generated node below existing canvas content", () => {
+  const actions: DesignAction[] = [
+    { type: "addNode", node: { id: "new-service", label: "New service", shape: "rectangle", x: 700, y: 200 } },
+  ];
+  const currentNodes = { existing: { position: { x: 100, y: 200 }, width: 180, height: 100 } };
+
+  layoutGeneratedGraph(actions, currentNodes);
+
+  const addedNode = actions[0];
+  assert.equal(addedNode.type, "addNode");
+  if (addedNode.type === "addNode") assert.deepEqual([addedNode.node.x, addedNode.node.y], [100, 660]);
+  assert.deepEqual(currentNodes.existing.position, { x: 100, y: 200 });
+});
+
 test("preserves model positions when a generated edge connects to an existing node", () => {
   const actions: DesignAction[] = [
     { type: "addNode", node: { id: "new-service", label: "New service", shape: "rectangle", x: 700, y: 800 } },
