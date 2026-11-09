@@ -1,7 +1,7 @@
 "use client";
 
 import { ClientSideSuspense, LiveblocksProvider, RoomProvider, useErrorListener } from "@liveblocks/react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 
 import { CanvasFlow } from "@/components/editor/canvas-flow";
 
@@ -34,7 +34,17 @@ function CanvasRoomContent({ onError, projectId }: { onError: () => void; projec
   );
 }
 
-function CanvasRoom({ roomId }: { roomId: string }) {
+export function CollaborativeRoomProvider({ roomId, children }: { roomId: string; children: ReactNode }) {
+  return (
+    <LiveblocksProvider authEndpoint="/api/liveblocks-auth">
+      <RoomProvider id={roomId} initialPresence={{ cursor: null, thinking: false }}>
+        {children}
+      </RoomProvider>
+    </LiveblocksProvider>
+  );
+}
+
+export function CollaborativeCanvas({ projectId }: { projectId: string }) {
   const [hasError, setHasError] = useState(false);
   if (hasError) {
     return (
@@ -44,17 +54,5 @@ function CanvasRoom({ roomId }: { roomId: string }) {
     );
   }
 
-  return (
-    <RoomProvider id={roomId} initialPresence={{ cursor: null, thinking: false }}>
-      <CanvasRoomContent projectId={roomId} onError={() => setHasError(true)} />
-    </RoomProvider>
-  );
-}
-
-export function CollaborativeCanvas({ roomId }: { roomId: string }) {
-  return (
-    <LiveblocksProvider authEndpoint="/api/liveblocks-auth">
-      <CanvasRoom roomId={roomId} />
-    </LiveblocksProvider>
-  );
+  return <CanvasRoomContent projectId={projectId} onError={() => setHasError(true)} />;
 }

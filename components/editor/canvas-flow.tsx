@@ -33,6 +33,7 @@ import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { useStarterTemplates, type QueuedCanvasTemplate } from "@/components/editor/starter-templates-context";
 import { useCanvasSave } from "@/hooks/use-canvas-save";
 import { useWorkspaceSave } from "@/components/editor/workspace-save-context";
+import { LoaderCircle } from "lucide-react";
 
 function initials(name: string) {
   return name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "?";
@@ -51,10 +52,13 @@ function CanvasPresence({ currentUserId, flowToScreenPosition, canvasBounds }: {
     <div className="pointer-events-none absolute right-4 top-4 z-30 flex items-center gap-2 rounded-full border border-surface-border bg-surface/95 p-1.5 shadow-lg shadow-base/40 backdrop-blur" aria-label={`${others.length} other ${others.length === 1 ? "collaborator" : "collaborators"} in this canvas`}>
       {collaborators.length > 0 && <div className="flex items-center pl-0.5" aria-label="Collaborators">
         {collaborators.map((other, index) => {
+          const isThinking = other.presence.thinking;
           const name = other.info.name || "Collaborator";
+          const displayName = isThinking ? `${name} · thinking` : name;
           const avatar = typeof other.info.avatar === "string" ? other.info.avatar.trim() : "";
-          return <div key={other.connectionId} title={name} aria-label={name} className={`relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-surface text-[10px] font-semibold text-copy-primary ring-1 ring-base ${index ? "-ml-2" : ""}`} style={{ backgroundColor: `${other.info.cursorColor}33`, zIndex: 10 - index }}>
+          return <div key={other.connectionId} title={displayName} aria-label={displayName} className={`relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-surface text-[10px] font-semibold text-copy-primary ring-1 ring-base ${index ? "-ml-2" : ""}`} style={{ backgroundColor: `${other.info.cursorColor}33`, zIndex: 10 - index }}>
             {avatar ? <img src={avatar} alt="" className="size-full object-cover" referrerPolicy="no-referrer" /> : initials(name)}
+            {isThinking && <span className="absolute inset-0 rounded-full border-2 border-ai-text/80" aria-hidden="true" />}
           </div>;
         })}
         {others.length > 5 && <span className="-ml-2 flex size-8 shrink-0 items-center justify-center rounded-full border-2 border-surface bg-subtle text-[10px] font-semibold text-copy-secondary ring-1 ring-base" aria-label={`${others.length - 5} more collaborators`}>+{others.length - 5}</span>}
@@ -70,7 +74,10 @@ function CanvasPresence({ currentUserId, flowToScreenPosition, canvasBounds }: {
       const name = other.info.name || "Collaborator";
       return <div key={other.connectionId} aria-hidden="true" className="pointer-events-none absolute z-40" style={{ left, top, color: other.info.cursorColor }}>
         <svg className="size-5 drop-shadow-md" viewBox="0 0 20 24" fill="currentColor"><path d="M1 1.5 18.5 13l-7.2 1.1-3.8 7.1L1 1.5Z" stroke="var(--bg-base)" strokeWidth="1.5" strokeLinejoin="round" /></svg>
-        <span className="ml-3 -mt-1 block max-w-36 truncate rounded-md px-1.5 py-0.5 text-[10px] font-semibold text-base shadow-md" style={{ backgroundColor: other.info.cursorColor }}>{name}</span>
+        <span className="ml-3 -mt-1 inline-flex max-w-36 items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold text-base shadow-md" style={{ backgroundColor: other.info.cursorColor }}>
+          <span className="truncate">{name}</span>
+          {other.presence.thinking === true && <LoaderCircle className="size-3 shrink-0 animate-spin" />}
+        </span>
       </div>;
     })}
   </>;

@@ -21,7 +21,15 @@ declare global {
         cursorColor: string;
       };
     };
-    RoomEvent: Record<string, never>;
+    FeedMessageData: {
+      state: "processing" | "retrying" | "complete" | "error";
+      text?: string;
+    } | {
+      sender: string;
+      role: "user" | "assistant" | "error";
+      content: string;
+      timestamp: string;
+    };
     ThreadMetadata: Record<string, never>;
     RoomInfo: Record<string, never>;
   }
