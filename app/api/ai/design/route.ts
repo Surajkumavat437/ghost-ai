@@ -1,7 +1,8 @@
 import { tasks } from "@trigger.dev/sdk";
 import { auth as triggerAuth } from "@trigger.dev/sdk";
 import { prisma } from "@/lib/prisma";
-import { canAccessProject, getCurrentClerkIdentity } from "@/lib/project-access";
+import { getCurrentClerkIdentity } from "@/lib/project-access";
+import { getAccessibleProject } from "@/lib/projects";
 import type { designAgent } from "@/trigger/design-agent";
 
 interface DesignRequestBody {
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
   }
 
   const projectId = body.roomId.trim();
-  const project = await canAccessProject(identity.userId, identity.primaryEmail, projectId);
+  const project = await getAccessibleProject(identity.userId, projectId);
   if (!project) return Response.json({ error: "Project not found" }, { status: 404 });
 
   let runId: string | undefined;

@@ -22,7 +22,14 @@ const canvasEdgeSchema = z.object({
   data: z.record(z.string(), z.unknown()).optional(),
 }).passthrough();
 
-export const specGenerationInputSchema = z.object({
+// The configured Nemotron model has a 256K-token context window. Reserve room
+// for the system instructions, reasoning, and up to 16,384 completion tokens.
+// Without the provider tokenizer at request time, use a conservative estimate
+// of one token per three serialized characters and cap input at 180K tokens.
+const MAX_ESTIMATED_INPUT_TOKENS = 180_000;
+const MAX_SERIALIZED_INPUT_CHARACTERS = MAX_ESTIMATED_INPUT_TOKENS * 3;
+
+const specGenerationBaseSchema = z.object({
   projectId: z.string().trim().min(1).max(100),
   roomId: z.string().trim().min(1).max(100),
   chatHistory: z.array(chatMessageSchema).max(200),
@@ -30,7 +37,19 @@ export const specGenerationInputSchema = z.object({
   edges: z.array(canvasEdgeSchema).max(1_000),
 });
 
-export const specGenerationRequestSchema = specGenerationInputSchema.omit({ projectId: true });
+function validateInputBudget(input: unknown, context: z.RefinementCtx) {
+  const serializedLength = JSON.stringify(input).length;
+  if (serializedLength > MAX_SERIALIZED_INPUT_CHARACTERS) {
+    context.addIssue({
+      code: "custom",
+      message: `Canvas and chat data are too large for spec generation (about ${Math.ceil(serializedLength / 3).toLocaleString()} estimated tokens). Reduce oversized labels or remove some canvas content, then try again.`,
+    });
+  }
+}
+
+export const specGenerationInputSchema = specGenerationBaseSchema.superRefine(validateInputBudget);
+
+export const specGenerationRequestSchema = specGenerationBaseSchema.omit({ projectId: true }).superRefine(validateInputBudget);
 export const specGenerationTokenSchema = z.object({ runId: z.string().trim().min(1).max(200) });
 
 export type SpecGenerationInput = z.infer<typeof specGenerationInputSchema>;

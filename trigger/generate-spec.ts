@@ -1,19 +1,15 @@
 import { OpenRouter } from "@openrouter/sdk";
 import { AbortTaskRunError, metadata, schemaTask } from "@trigger.dev/sdk";
 import { put } from "@vercel/blob";
-import { z } from "zod";
 
 import { specGenerationInputSchema } from "@/lib/spec-generation-schema";
 import { prisma } from "@/lib/prisma";
-
-const payloadSchema = specGenerationInputSchema.extend({
-  projectId: z.string().trim().min(1).max(100),
-});
 
 const OPENROUTER_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free";
 const REQUEST_TIMEOUT_MS = 120_000;
 const MAX_PROVIDER_ATTEMPTS = 3;
 const MAX_COMPLETION_TOKENS = 16_384;
+const TRUNCATED_RESPONSE_ERROR = "OpenRouter truncated the technical specification at its output limit. Reduce the requested specification scope and try again.";
 const BLOB_UPLOAD_TIMEOUT_MS = 30_000;
 
 function getHttpStatus(error: unknown): number | undefined {
@@ -45,7 +41,7 @@ function waitForRetry(ms: number, signal: AbortSignal): Promise<void> {
 
 export const generateSpec = schemaTask({
   id: "generate-spec",
-  schema: payloadSchema,
+  schema: specGenerationInputSchema,
   maxDuration: 600,
   retry: { maxAttempts: 1, minTimeoutInMs: 1_000, maxTimeoutInMs: 10_000, factor: 2, randomize: true },
   catchError: () => ({ skipRetrying: true }),
@@ -110,6 +106,7 @@ export const generateSpec = schemaTask({
             durationMs: Date.now() - attemptStartedAt,
           });
 
+          if (finishReason === "length") throw new Error(TRUNCATED_RESPONSE_ERROR);
           if (spec) break;
           throw new Error("OpenRouter returned an empty spec response");
         } catch (error) {
@@ -134,7 +131,9 @@ export const generateSpec = schemaTask({
             throw new AbortTaskRunError("OpenRouter rejected the spec generation request. Check the model access and request configuration.");
           }
           if (!retryable) {
-            const failure = new AbortTaskRunError("OpenRouter could not generate the technical specification after three attempts.");
+            const failure = new AbortTaskRunError(error instanceof Error && error.message === TRUNCATED_RESPONSE_ERROR
+              ? TRUNCATED_RESPONSE_ERROR
+              : "OpenRouter could not generate the technical specification after three attempts.");
             Object.assign(failure, { cause: error });
             throw failure;
           }
